@@ -1,22 +1,13 @@
 import React from 'react';
 import { type WhaleFrame } from './whaleFrames.js';
-/**
- * Render a frame to 13 ANSI rows (one per sprite row pair). Consecutive
- * cells sharing one style are run-length encoded; trailing transparent
- * cells are dropped so the rows measure exactly the whale's bounding box.
- */
-export declare function renderWhaleRows(frame: WhaleFrame): string[];
-/** Index of the `standard` frame — the settled header's static pose. */
+type Rgb = readonly [number, number, number];
+export declare function renderWhaleRows(frame: WhaleFrame, fill?: Rgb, patch?: Rgb): string[];
 export declare const STANDARD_FRAME_INDEX = 0;
-/**
- * One whale pose as an Ink component: 13 rows × 40 columns, never
- * shrinking. Pass `frameIndex` from OPENING_SEQUENCE while animating, or
- * STANDARD_FRAME_INDEX for the static header whale. `width` pins the box
- * width so the neighbouring text column never shifts when frames widen
- * (the tail-wag frames reach 4 columns further right than standard).
- */
-export declare function WhaleArt({ frameIndex, width, }: {
+export declare function WhaleArt({ frameIndex, width, fill, patch, }: {
     frameIndex?: number;
     width?: number;
+    fill?: Rgb;
+    patch?: Rgb;
 }): React.ReactNode;
+export {};
 //# sourceMappingURL=Whale.d.ts.map

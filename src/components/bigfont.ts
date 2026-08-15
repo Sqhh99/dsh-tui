@@ -1,12 +1,9 @@
 import { interpolateColor } from './Spinner/spinnerUtils.js'
 
 /**
- * A 5-row block font for the header tagline, painted with a horizontal
- * color gradient plus a moving highlight window (the same sweep cadence as
- * the wordmark shimmer — see the `stepMs` parameter). Glyphs are 5 columns wide so curves
- * and diagonals stay legible; only the letters the tagline needs are
- * defined, and unknown characters fall back to a hollow box so a typo
- * fails visibly instead of crashing the splash.
+ * A 4-row outline block font for the splash wordmark, painted with a
+ * horizontal color gradient plus an optional moving highlight. Glyphs are
+ * 5 columns wide; only the letters the tagline needs are defined.
  */
 
 export interface Rgb {
@@ -16,25 +13,26 @@ export interface Rgb {
 }
 
 /** Glyph rows are 5 columns wide; `·` is a transparent cell. */
-const GLYPHS: Record<string, readonly [string, string, string, string, string]> = {
-  D: ['█▀▀▀▄', '█···█', '█···█', '█···█', '█▄▄▄▀'],
-  E: ['█▀▀▀▀', '█····', '█▀▀▀·', '█····', '█▄▄▄▄'],
-  P: ['█▀▀▀▄', '█···█', '█▄▄▄▀', '█····', '█····'],
-  S: ['█▀▀▀▀', '█····', '·▀▀▀▄', '····█', '█▄▄▄▀'],
-  K: ['█···█', '█·█··', '██···', '█·█··', '█···█'],
-  H: ['█···█', '█···█', '█▀▀▀█', '█···█', '█···█'],
-  A: ['·▄▀▄·', '█···█', '█▀▀▀█', '█···█', '█···█'],
-  R: ['█▀▀▀▄', '█···█', '█▄▄▄▀', '█·█··', '█···█'],
-  N: ['█···█', '██··█', '█·█·█', '█··██', '█···█'],
+const GLYPHS: Record<string, readonly [string, string, string, string]> = {
+  D: ['█▀▀▀█', '█···█', '█···█', '█▄▄▄█'],
+  E: ['█▀▀▀▀', '█▀▀▀·', '█····', '█▄▄▄▄'],
+  P: ['█▀▀▀█', '█▄▄▄▀', '█····', '█····'],
+  S: ['█▀▀▀█', '█▄▄▄·', '····█', '█▄▄▄█'],
+  K: ['█···█', '█▄▀··', '█▀▄··', '█···█'],
+  H: ['█···█', '█▀▀▀█', '█···█', '█···█'],
+  A: ['▄▀▀▀▄', '█▀▀▀█', '█···█', '█···█'],
+  R: ['█▀▀▀█', '█▄▄▄▀', '█▀▄··', '█···█'],
+  N: ['█···█', '██··█', '█·█·█', '█··██'],
 }
 
-const FALLBACK: readonly [string, string, string, string, string] = [
+const FALLBACK: readonly [string, string, string, string] = [
   '▄▄▄▄▄',
-  '█···█',
   '█···█',
   '█···█',
   '▀▀▀▀▀',
 ]
+
+const FONT_ROWS = 4
 
 /** Per-glyph advance (5 glyph columns + 1 kerning column). */
 const ADVANCE = 6
@@ -47,17 +45,16 @@ const esc = (rgb: Rgb): string => `\x1b[38;2;${rgb.r};${rgb.g};${rgb.b}m`
 const RESET = '\x1b[39m'
 
 /**
- * Render `text` in the 5-row block font. The gradient runs `from` → `to`
+ * Render `text` in the 4-row outline block font. The gradient runs `from` → `to`
  * across the full line width; a SWEEP_WINDOW-wide highlight mixed toward
- * `flash` travels left to right (one column per `stepMs`, matching the
- * wordmark shimmer's cadence). Returns 5 ANSI rows.
- * @param text - Text to render; only D, E, P, S, K, H, A, R, N have glyphs, unknown letters fall back to a hollow box.
- * @param time - Elapsed time in milliseconds; drives the sweep position and the brightness pulse.
+ * `flash` travels left to right (one column per `stepMs`).
+ * @param text - Text to render; only D, E, P, S, K, H, A, R, N have glyphs.
+ * @param time - Elapsed time in milliseconds; drives the sweep. Pass 0 for a static line.
  * @param from - Gradient start color at the left edge.
  * @param to - Gradient end color at the right edge.
  * @param flash - Highlight color mixed into the moving sweep window.
  * @param stepMs - Milliseconds per column of sweep advance (default 60).
- * @returns Five ANSI rows, one per block-font line.
+ * @returns Four ANSI rows, one per block-font line.
  */
 export function renderBigText(
   text: string,
@@ -73,7 +70,7 @@ export function renderBigText(
   const pulse = (Math.sin(time / (stepMs * 2)) + 1) / 2
 
   const rows: string[] = []
-  for (let row = 0; row < 5; row++) {
+  for (let row = 0; row < FONT_ROWS; row++) {
     let out = ''
     let current = ''
     let x = 0
@@ -113,4 +110,14 @@ export function renderBigText(
     rows.push(out)
   }
   return rows
+}
+
+/**
+ * One-color outline word, no sweep. Used by the monochrome splash.
+ * @param text - Letters to draw.
+ * @param color - Ink color for every filled cell.
+ * @returns Four ANSI rows.
+ */
+export function renderBigTextSolid(text: string, color: Rgb): string[] {
+  return renderBigText(text, 0, color, color, color, 60)
 }
