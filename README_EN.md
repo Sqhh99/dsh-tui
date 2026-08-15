@@ -28,6 +28,8 @@ dsh plugin --profile dsh-tui add github:Sqhh99/dsh-tui
 
 pnpm ≥10 blocks that build until you add the printed key under `allowBuilds` in `~/.dsh/profiles/dsh-tui/pnpm-workspace.yaml`.
 
+The splash draws the whale from `docs/assets/deepseek.png` as a solid half-block silhouette — braille samples finer but leaves gaps around each dot, so a filled shape comes out as a mesh — beside a two-line `DEEPSEEK` / `HARNESS` wordmark justified to one right edge and ramped through the theme's brand blues. The package version sits on the model line, and narrow terminals drop the whale. Set `DSH_TUI_LOGO_GLYPHS=braille|sextant|half` to change the glyph set.
+
 `dsh-tui --resume` reads `~/.dsh-tui/resume.txt`, then `~/.dsh-cc/resume.txt`.
 
 ## Layers

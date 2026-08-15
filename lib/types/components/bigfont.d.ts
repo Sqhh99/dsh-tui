@@ -1,7 +1,12 @@
 /**
- * A 4-row outline block font for the splash wordmark, painted with a
- * horizontal color gradient plus an optional moving highlight. Glyphs are
- * 5 columns wide; only the letters the tagline needs are defined.
+ * The splash wordmark font: a 6×7 monoline pixel face traced from
+ * docs/assets/logo.png, folded into half-block rows so one glyph occupies
+ * 6 terminal columns and 4 rows.
+ *
+ * Half-blocks make the sprite pixel square: a terminal cell is about 1 wide
+ * by 2 tall, so a `▀`/`▄` half is as tall as it is wide. That keeps the
+ * 1-pixel strokes of the reference face even in both directions — the older
+ * 4×3 face fused its stems and turned `S` into `a`.
  */
 export interface Rgb {
     r: number;
@@ -9,23 +14,35 @@ export interface Rgb {
     b: number;
 }
 /**
- * Render `text` in the 4-row outline block font. The gradient runs `from` → `to`
- * across the full line width; a SWEEP_WINDOW-wide highlight mixed toward
- * `flash` travels left to right (one column per `stepMs`).
- * @param text - Text to render; only D, E, P, S, K, H, A, R, N have glyphs.
- * @param time - Elapsed time in milliseconds; drives the sweep. Pass 0 for a static line.
- * @param from - Gradient start color at the left edge.
- * @param to - Gradient end color at the right edge.
- * @param flash - Highlight color mixed into the moving sweep window.
- * @param stepMs - Milliseconds per column of sweep advance (default 60).
- * @returns Four ANSI rows, one per block-font line.
+ * Terminal columns a wordmark occupies (gaps between letters, none trailing).
+ * @param text - Letters and spaces to measure.
+ * @param tracking - Columns between adjacent letters.
+ * @returns Width in columns.
  */
-export declare function renderBigText(text: string, time: number, from: Rgb, to: Rgb, flash: Rgb, stepMs?: number): string[];
+export declare function wordmarkColumns(text: string, tracking?: number): number;
 /**
- * One-color outline word, no sweep. Used by the monochrome splash.
- * @param text - Letters to draw.
- * @param color - Ink color for every filled cell.
- * @returns Four ANSI rows.
+ * Letter tracking that sets `text` to exactly `columns` wide, so stacked
+ * wordmark lines of different letter counts justify to the same edge as they
+ * do in docs/assets/logo.png.
+ * @param text - Letters to fit.
+ * @param columns - Target width in terminal columns.
+ * @returns Tracking to pass to the render functions; at least 1.
  */
-export declare function renderBigTextSolid(text: string, color: Rgb): string[];
+export declare function trackingToFit(text: string, columns: number): number;
+/**
+ * Paint `text` in the wordmark face, ramping `stops` left to right.
+ * @param text - Text to draw; letters without a glyph fall back to a box.
+ * @param stops - One or more colors sampled across the line's width.
+ * @param tracking - Columns between letters (see `trackingToFit`).
+ * @returns `FONT_ROWS` ANSI strings, one per terminal row.
+ */
+export declare function renderBigText(text: string, stops: readonly Rgb[], tracking?: number): string[];
+/**
+ * One-color wordmark, no ramp.
+ * @param text - Letters to draw.
+ * @param color - Ink for every filled cell.
+ * @param tracking - Columns between letters.
+ * @returns `FONT_ROWS` ANSI rows.
+ */
+export declare function renderBigTextSolid(text: string, color: Rgb, tracking?: number): string[];
 //# sourceMappingURL=bigfont.d.ts.map

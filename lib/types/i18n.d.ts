@@ -635,22 +635,6 @@ declare const dict: {
         readonly zh: "推理强度 → {{name}}";
         readonly en: "Reasoning effort → {{name}}";
     };
-    readonly 'logo-tagline': {
-        readonly zh: "探索未至之境！";
-        readonly en: "Explore the uncharted!";
-    };
-    readonly 'logo-tip-model': {
-        readonly zh: "切换模型";
-        readonly en: "switch model";
-    };
-    readonly 'logo-tip-help': {
-        readonly zh: "查看命令";
-        readonly en: "view commands";
-    };
-    readonly 'logo-tip-tab': {
-        readonly zh: "自动补全";
-        readonly en: "autocomplete";
-    };
     readonly 'input-sent-after-turn': {
         readonly zh: "已发送，当前回合结束后处理";
         readonly en: "Sent, processed after the current turn";
@@ -694,54 +678,6 @@ declare const dict: {
     readonly 'input-pending-actions-hint': {
         readonly zh: "撤回 · Esc 打断并立即发送";
         readonly en: "Retract · Esc interrupts and sends immediately";
-    };
-    readonly 'frame-blink': {
-        readonly zh: "眨眼";
-        readonly en: "blink";
-    };
-    readonly 'frame-fin-1': {
-        readonly zh: "动腹鳍1";
-        readonly en: "fin1";
-    };
-    readonly 'frame-fin-2': {
-        readonly zh: "动腹鳍2";
-        readonly en: "fin2";
-    };
-    readonly 'frame-spout-1': {
-        readonly zh: "喷水花1";
-        readonly en: "spout1";
-    };
-    readonly 'frame-spout-2': {
-        readonly zh: "喷水花2";
-        readonly en: "spout2";
-    };
-    readonly 'frame-spout-3': {
-        readonly zh: "喷水花3";
-        readonly en: "spout3";
-    };
-    readonly 'frame-spout-4': {
-        readonly zh: "喷水花4";
-        readonly en: "spout4";
-    };
-    readonly 'frame-spout-5': {
-        readonly zh: "喷水花5";
-        readonly en: "spout5";
-    };
-    readonly 'frame-spout-6': {
-        readonly zh: "喷水花6";
-        readonly en: "spout6";
-    };
-    readonly 'frame-tail-1': {
-        readonly zh: "摆尾巴1";
-        readonly en: "tail1";
-    };
-    readonly 'frame-tail-2': {
-        readonly zh: "摆尾巴2";
-        readonly en: "tail2";
-    };
-    readonly 'frame-tail-3': {
-        readonly zh: "摆尾巴3";
-        readonly en: "tail3";
     };
     readonly 'load-earlier': {
         readonly zh: " ↑ 加载更早消息（会话日志完整，/export 导出全文） ";

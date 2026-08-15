@@ -573,10 +573,10 @@ function compactPreview(text: string, limit = 60): string {
 const MemoRow = React.memo(TranscriptRow)
 
 /**
- * The header block pinned above the transcript: the DeepSeek pixel whale
- * with the wordmark, tagline, model/effort and cwd (`LogoV2`), plus the
- * welcome line. It scrolls away with the transcript once the conversation
- * fills the viewport (Claude Code shows its ✦ logo in the same slot).
+ * The header block pinned above the transcript: whale from
+ * `docs/assets/deepseek.png`, wordmark, and live model/cwd (`LogoV2`).
+ * It scrolls away with the transcript once the conversation fills
+ * the viewport.
  */
 export function LogoHeader({
   model,

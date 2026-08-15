@@ -3,12 +3,18 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Box, Text, useTerminalSize } from '../ui.js'
-import { getTheme } from '../theme.js'
+import { getTheme, type Theme } from '../theme.js'
 import { useTheme } from './design-system/ThemeProvider.js'
 import { parseRGB } from './Spinner/spinnerUtils.js'
-import { renderBigTextSolid } from './bigfont.js'
-import { STANDARD_FRAME_INDEX, WhaleArt } from './Whale.js'
-import { OPENING_SEQUENCE } from './whaleFrames.js'
+import { renderBigText, trackingToFit, type Rgb } from './bigfont.js'
+import {
+  LOGO_MASK,
+  mosaicRows,
+  preferGlyphs,
+  whaleCellSize,
+  WHALE_GAP,
+  WORDMARK_COLUMNS,
+} from './logoMosaic.js'
 
 const VERSION = (() => {
   try {
@@ -19,80 +25,83 @@ const VERSION = (() => {
   }
 })()
 
-const FULL_WHALE_WIDTH = 28
-/** `DEEPSEEK` at 8 glyphs × 6 columns, less the trailing kerning column. */
-const WORDMARK_WIDTH = 47
-/** Whale + gap + wordmark; below this the whale drops and the text stands alone. */
-const WHALE_MIN_COLUMNS = FULL_WHALE_WIDTH + 3 + WORDMARK_WIDTH
-/** Rule under the wordmark, flush with it as in docs/assets/logo.png. */
-const RULE = '─'.repeat(WORDMARK_WIDTH)
+/** Flush with the wordmark, as the rule is in docs/assets/logo.png. */
+const RULE = '─'.repeat(WORDMARK_COLUMNS)
 
-const INK_LIGHT = { r: 232, g: 230, b: 224 }
-const INK_DARK = { r: 24, g: 24, b: 24 }
+const INK_LIGHT: Rgb = { r: 232, g: 230, b: 224 }
+const INK_DARK: Rgb = { r: 24, g: 24, b: 24 }
+
+/**
+ * Brand ramp for the wordmark, left to right: `remember` is the palette's
+ * strongest brand blue against its own background and `claude` the mid one,
+ * so the ramp falls away from the reader in both light and dark without
+ * needing separate stops — and user themes inherit it with no extra keys.
+ * Falls back to flat ink on `dark-ansi`, which has no truecolor to ramp.
+ */
+function brandRamp(theme: Theme, fallback: Rgb): Rgb[] {
+  const stops = [theme.remember, theme.claude]
+    .map((color) => parseRGB(color))
+    .filter((color): color is Rgb => color !== undefined)
+  return stops.length === 0 ? [fallback] : stops
+}
 
 function capitalize(text: string): string {
   return text.length === 0 ? text : text[0].toUpperCase() + text.slice(1)
 }
 
-function toTriple(color: { r: number; g: number; b: number }): readonly [number, number, number] {
-  return [color.r, color.g, color.b]
-}
-
 /**
- * Splash matched to docs/assets/logo.png: monochrome leaping whale, 4-row
- * outline wordmark, short blink, then a static header. Narrow terminals
- * drop the whale.
+ * Splash: the whale from docs/assets/deepseek.png as a solid half-block
+ * silhouette, the two-line wordmark ramped through the theme's brand blues,
+ * then model / effort / version and the cwd. Narrow terminals drop the whale
+ * and leave the wordmark standing alone.
  */
 export function LogoV2({
   model,
   effort,
   cwd,
-  skipIntro = false,
 }: {
   model: string
   effort?: string | undefined
   cwd: string
-  skipIntro?: boolean
 }): React.ReactNode {
-  const [step, setStep] = React.useState(skipIntro ? OPENING_SEQUENCE.length : 0)
-  const settled = step >= OPENING_SEQUENCE.length
-
-  React.useEffect(() => {
-    if (settled) return
-    const timer = setTimeout(() => {
-      setStep(s => s + 1)
-    }, OPENING_SEQUENCE[step].ms)
-    return () => {
-      clearTimeout(timer)
-    }
-  }, [step, settled])
-
   const [themeName] = useTheme()
   const theme = getTheme(themeName)
   const { columns } = useTerminalSize()
 
   const ink = parseRGB(theme.text) ?? (themeName === 'light' ? INK_DARK : INK_LIGHT)
-  const showWhale = columns >= WHALE_MIN_COLUMNS
-  const frameIndex = settled ? STANDARD_FRAME_INDEX : OPENING_SEQUENCE[step].frame
-  const bigDeepSeek = renderBigTextSolid('DEEPSEEK', ink)
-  const bigHarness = renderBigTextSolid('HARNESS', ink)
+  const ramp = brandRamp(theme, ink)
+  // The whale sits at the soft end of the ramp so the wordmark stays the
+  // brightest thing in the block; ink alone made the silhouette shout.
+  const whaleInk = ramp[ramp.length - 1]
+  const size = whaleCellSize(columns)
+  const whale =
+    size === null
+      ? null
+      : mosaicRows(LOGO_MASK, size.columns, whaleInk, { glyphs: preferGlyphs(), rows: size.rows })
+  // `HARNESS` is a letter short, so widen its tracking to the same right edge.
+  const deepseek = renderBigText('DEEPSEEK', ramp)
+  const harness = renderBigText('HARNESS', ramp, trackingToFit('HARNESS', WORDMARK_COLUMNS))
 
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Box flexDirection="row" gap={3} width="100%" alignItems="center">
-        {showWhale && (
-          <WhaleArt frameIndex={frameIndex} width={FULL_WHALE_WIDTH} fill={toTriple(ink)} />
+      <Box flexDirection="row" gap={WHALE_GAP} width="100%" alignItems="center">
+        {whale !== null && (
+          <Box flexDirection="column" flexShrink={0} width={size?.columns}>
+            {whale.map((row, index) => (
+              <Text key={index} wrap="truncate-end">
+                {row}
+              </Text>
+            ))}
+          </Box>
         )}
         <Box flexDirection="column" flexShrink={1}>
-          <Text dimColor wrap="truncate-end">
-            {'dsh-tui  v' + VERSION}
-          </Text>
-          {bigDeepSeek.map((row, index) => (
+          {deepseek.map((row, index) => (
             <Text key={`ds-${index}`} wrap="truncate-end">
               {row}
             </Text>
           ))}
-          {bigHarness.map((row, index) => (
+          <Box height={1} />
+          {harness.map((row, index) => (
             <Text key={`h-${index}`} wrap="truncate-end">
               {row}
             </Text>
@@ -103,6 +112,7 @@ export function LogoV2({
           <Text wrap="truncate-end">
             {model}
             {effort !== undefined && <Text dimColor>{'  ·  ' + capitalize(effort) + ' effort'}</Text>}
+            <Text dimColor>{'  ·  v' + VERSION}</Text>
           </Text>
           <Text dimColor wrap="truncate-end">
             {'>_  ' + cwd}

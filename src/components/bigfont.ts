@@ -1,9 +1,14 @@
 import { interpolateColor } from './Spinner/spinnerUtils.js'
 
 /**
- * A 4-row outline block font for the splash wordmark, painted with a
- * horizontal color gradient plus an optional moving highlight. Glyphs are
- * 5 columns wide; only the letters the tagline needs are defined.
+ * The splash wordmark font: a 6×7 monoline pixel face traced from
+ * docs/assets/logo.png, folded into half-block rows so one glyph occupies
+ * 6 terminal columns and 4 rows.
+ *
+ * Half-blocks make the sprite pixel square: a terminal cell is about 1 wide
+ * by 2 tall, so a `▀`/`▄` half is as tall as it is wide. That keeps the
+ * 1-pixel strokes of the reference face even in both directions — the older
+ * 4×3 face fused its stems and turned `S` into `a`.
  */
 
 export interface Rgb {
@@ -12,112 +17,159 @@ export interface Rgb {
   b: number
 }
 
-/** Glyph rows are 5 columns wide; `·` is a transparent cell. */
-const GLYPHS: Record<string, readonly [string, string, string, string]> = {
-  D: ['█▀▀▀█', '█···█', '█···█', '█▄▄▄█'],
-  E: ['█▀▀▀▀', '█▀▀▀·', '█····', '█▄▄▄▄'],
-  P: ['█▀▀▀█', '█▄▄▄▀', '█····', '█····'],
-  S: ['█▀▀▀█', '█▄▄▄·', '····█', '█▄▄▄█'],
-  K: ['█···█', '█▄▀··', '█▀▄··', '█···█'],
-  H: ['█···█', '█▀▀▀█', '█···█', '█···█'],
-  A: ['▄▀▀▀▄', '█▀▀▀█', '█···█', '█···█'],
-  R: ['█▀▀▀█', '█▄▄▄▀', '█▀▄··', '█···█'],
-  N: ['█···█', '██··█', '█·█·█', '█··██'],
-}
-
-const FALLBACK: readonly [string, string, string, string] = [
-  '▄▄▄▄▄',
-  '█···█',
-  '█···█',
-  '▀▀▀▀▀',
-]
-
+/** Glyph body height in sprite pixels; the 8th row pads out the last row pair. */
+const GLYPH_HEIGHT = 7
+const GLYPH_WIDTH = 6
+/** Terminal rows one wordmark line occupies, at two sprite pixels per row. */
 const FONT_ROWS = 4
 
-/** Per-glyph advance (5 glyph columns + 1 kerning column). */
-const ADVANCE = 6
-/** Space between words. */
-const WORD_GAP = 2
-/** Sweep highlight window width, in terminal columns. */
-const SWEEP_WINDOW = 8
+/** `#` ink, `.` empty. Six columns by seven rows, monoline strokes. */
+const GLYPHS: Record<string, readonly string[]> = {
+  D: ['#####.', '#....#', '#....#', '#....#', '#....#', '#....#', '#####.'],
+  E: ['######', '#.....', '#.....', '#####.', '#.....', '#.....', '######'],
+  P: ['#####.', '#....#', '#....#', '#####.', '#.....', '#.....', '#.....'],
+  S: ['.#####', '#.....', '#.....', '.####.', '.....#', '.....#', '#####.'],
+  // The arms kink at row 2/4 so a 1-pixel diagonal can still reach both the
+  // stem at column 1 and the cap at column 5.
+  K: ['#....#', '#...#.', '#.##..', '##....', '#.##..', '#...#.', '#....#'],
+  H: ['#....#', '#....#', '#....#', '######', '#....#', '#....#', '#....#'],
+  A: ['.####.', '#....#', '#....#', '######', '#....#', '#....#', '#....#'],
+  R: ['#####.', '#....#', '#....#', '#####.', '#..#..', '#...#.', '#....#'],
+  N: ['#....#', '##...#', '#.#..#', '#..#.#', '#...##', '#....#', '#....#'],
+}
+
+/** Drawn for any letter without a glyph, so a typo is visible, not invisible. */
+const FALLBACK: readonly string[] = [
+  '######',
+  '#....#',
+  '#....#',
+  '#....#',
+  '#....#',
+  '#....#',
+  '######',
+]
+
+/** Default columns between letters. */
+const TRACKING = 1
+/** Columns for a space between words. */
+const WORD_GAP = 3
+
+/**
+ * Terminal columns a wordmark occupies (gaps between letters, none trailing).
+ * @param text - Letters and spaces to measure.
+ * @param tracking - Columns between adjacent letters.
+ * @returns Width in columns.
+ */
+export function wordmarkColumns(text: string, tracking: number = TRACKING): number {
+  let width = 0
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === ' ') {
+      width += WORD_GAP
+      continue
+    }
+    if (width > 0 && text[i - 1] !== ' ') width += tracking
+    width += GLYPH_WIDTH
+  }
+  return width
+}
+
+/**
+ * Letter tracking that sets `text` to exactly `columns` wide, so stacked
+ * wordmark lines of different letter counts justify to the same edge as they
+ * do in docs/assets/logo.png.
+ * @param text - Letters to fit.
+ * @param columns - Target width in terminal columns.
+ * @returns Tracking to pass to the render functions; at least 1.
+ */
+export function trackingToFit(text: string, columns: number): number {
+  const letters = [...text].filter((ch) => ch !== ' ').length
+  if (letters < 2) return TRACKING
+  const spare = columns - letters * GLYPH_WIDTH
+  return Math.max(TRACKING, Math.floor(spare / (letters - 1)))
+}
 
 const esc = (rgb: Rgb): string => `\x1b[38;2;${rgb.r};${rgb.g};${rgb.b}m`
 const RESET = '\x1b[39m'
 
+/** Sample a multi-stop ramp. `t` runs 0→1 across the wordmark. */
+function rampAt(stops: readonly Rgb[], t: number): Rgb {
+  if (stops.length === 1) return stops[0]
+  const span = (stops.length - 1) * Math.min(Math.max(t, 0), 1)
+  const i = Math.min(Math.floor(span), stops.length - 2)
+  return interpolateColor(stops[i], stops[i + 1], span - i)
+}
+
 /**
- * Render `text` in the 4-row outline block font. The gradient runs `from` → `to`
- * across the full line width; a SWEEP_WINDOW-wide highlight mixed toward
- * `flash` travels left to right (one column per `stepMs`).
- * @param text - Text to render; only D, E, P, S, K, H, A, R, N have glyphs.
- * @param time - Elapsed time in milliseconds; drives the sweep. Pass 0 for a static line.
- * @param from - Gradient start color at the left edge.
- * @param to - Gradient end color at the right edge.
- * @param flash - Highlight color mixed into the moving sweep window.
- * @param stepMs - Milliseconds per column of sweep advance (default 60).
- * @returns Four ANSI rows, one per block-font line.
+ * Paint `text` in the wordmark face, ramping `stops` left to right.
+ * @param text - Text to draw; letters without a glyph fall back to a box.
+ * @param stops - One or more colors sampled across the line's width.
+ * @param tracking - Columns between letters (see `trackingToFit`).
+ * @returns `FONT_ROWS` ANSI strings, one per terminal row.
  */
 export function renderBigText(
   text: string,
-  time: number,
-  from: Rgb,
-  to: Rgb,
-  flash: Rgb,
-  stepMs = 60,
+  stops: readonly Rgb[],
+  tracking: number = TRACKING,
 ): string[] {
-  const width = text.length * ADVANCE + (text.includes(' ') ? WORD_GAP - 1 : 0)
-  const cycle = width + SWEEP_WINDOW * 2
-  const sweepStart = (Math.floor(time / stepMs) % cycle) - SWEEP_WINDOW
-  const pulse = (Math.sin(time / (stepMs * 2)) + 1) / 2
+  const width = wordmarkColumns(text, tracking)
+  // Sprite columns, one per terminal column; `undefined` rows are the gaps.
+  const columns: (readonly string[] | undefined)[] = []
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i] ?? ''
+    if (ch === ' ') {
+      for (let n = 0; n < WORD_GAP; n++) columns.push(undefined)
+      continue
+    }
+    if (columns.length > 0 && text[i - 1] !== ' ') {
+      for (let n = 0; n < tracking; n++) columns.push(undefined)
+    }
+    const glyph = GLYPHS[ch] ?? FALLBACK
+    for (let x = 0; x < GLYPH_WIDTH; x++) {
+      columns.push(glyph.map((row) => row[x] ?? '.'))
+    }
+  }
 
   const rows: string[] = []
   for (let row = 0; row < FONT_ROWS; row++) {
+    const top = row * 2
     let out = ''
     let current = ''
-    let x = 0
-    const emit = (ch: string): void => {
-      if (ch === ' ' || ch === '·') {
+    for (let x = 0; x < columns.length; x++) {
+      const glyph = columns[x]
+      const upper = glyph !== undefined && top < GLYPH_HEIGHT && glyph[top] === '#'
+      const lower = glyph !== undefined && top + 1 < GLYPH_HEIGHT && glyph[top + 1] === '#'
+      if (!upper && !lower) {
         if (current !== '') {
           out += RESET
           current = ''
         }
         out += ' '
-        x += 1
-        return
+        continue
       }
-      const t = width <= 1 ? 0 : x / (width - 1)
-      let color = interpolateColor(from, to, t)
-      if (x >= sweepStart && x < sweepStart + SWEEP_WINDOW) {
-        color = interpolateColor(color, flash, pulse)
-      }
-      const seq = esc(color)
+      const seq = esc(rampAt(stops, width <= 1 ? 0 : x / (width - 1)))
       if (seq !== current) {
         out += seq
         current = seq
       }
-      out += ch
-      x += 1
-    }
-    for (const ch of text) {
-      if (ch === ' ') {
-        for (let i = 0; i < WORD_GAP; i++) emit(' ')
-        continue
-      }
-      const glyph = GLYPHS[ch] ?? FALLBACK
-      for (const cell of glyph[row]) emit(cell)
-      emit(' ')
+      out += upper && lower ? '█' : upper ? '▀' : '▄'
     }
     if (current !== '') out += RESET
-    rows.push(out)
+    rows.push(out.replace(/ +$/, ''))
   }
   return rows
 }
 
 /**
- * One-color outline word, no sweep. Used by the monochrome splash.
+ * One-color wordmark, no ramp.
  * @param text - Letters to draw.
- * @param color - Ink color for every filled cell.
- * @returns Four ANSI rows.
+ * @param color - Ink for every filled cell.
+ * @param tracking - Columns between letters.
+ * @returns `FONT_ROWS` ANSI rows.
  */
-export function renderBigTextSolid(text: string, color: Rgb): string[] {
-  return renderBigText(text, 0, color, color, color, 60)
+export function renderBigTextSolid(
+  text: string,
+  color: Rgb,
+  tracking: number = TRACKING,
+): string[] {
+  return renderBigText(text, [color], tracking)
 }
