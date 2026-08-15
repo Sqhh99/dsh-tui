@@ -38,10 +38,10 @@ const INK_DARK: Rgb = { r: 24, g: 24, b: 24 }
  * needing separate stops — and user themes inherit it with no extra keys.
  * Falls back to flat ink on `dark-ansi`, which has no truecolor to ramp.
  */
-function brandRamp(theme: Theme, fallback: Rgb): Rgb[] {
+export function brandRamp(theme: Theme, fallback: Rgb): Rgb[] {
   const stops = [theme.remember, theme.claude]
     .map((color) => parseRGB(color))
-    .filter((color): color is Rgb => color !== undefined)
+    .filter((color): color is Rgb => color != null)
   return stops.length === 0 ? [fallback] : stops
 }
 
@@ -72,7 +72,7 @@ export function LogoV2({
   const ramp = brandRamp(theme, ink)
   // The whale sits at the soft end of the ramp so the wordmark stays the
   // brightest thing in the block; ink alone made the silhouette shout.
-  const whaleInk = ramp[ramp.length - 1]
+  const whaleInk = ramp[ramp.length - 1] ?? ink
   const size = whaleCellSize(columns)
   const whale =
     size === null

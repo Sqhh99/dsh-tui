@@ -1,4 +1,14 @@
 import React from 'react';
+import { type Theme } from '../theme.js';
+import { type Rgb } from './bigfont.js';
+/**
+ * Brand ramp for the wordmark, left to right: `remember` is the palette's
+ * strongest brand blue against its own background and `claude` the mid one,
+ * so the ramp falls away from the reader in both light and dark without
+ * needing separate stops — and user themes inherit it with no extra keys.
+ * Falls back to flat ink on `dark-ansi`, which has no truecolor to ramp.
+ */
+export declare function brandRamp(theme: Theme, fallback: Rgb): Rgb[];
 /**
  * Splash: the whale from docs/assets/deepseek.png as a solid half-block
  * silhouette, the two-line wordmark ramped through the theme's brand blues,
