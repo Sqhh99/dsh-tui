@@ -19,8 +19,13 @@ const VERSION = (() => {
   }
 })()
 
-const WHALE_MIN_COLUMNS = 64
 const FULL_WHALE_WIDTH = 28
+/** `DEEPSEEK` at 8 glyphs × 6 columns, less the trailing kerning column. */
+const WORDMARK_WIDTH = 47
+/** Whale + gap + wordmark; below this the whale drops and the text stands alone. */
+const WHALE_MIN_COLUMNS = FULL_WHALE_WIDTH + 3 + WORDMARK_WIDTH
+/** Rule under the wordmark, flush with it as in docs/assets/logo.png. */
+const RULE = '─'.repeat(WORDMARK_WIDTH)
 
 const INK_LIGHT = { r: 232, g: 230, b: 224 }
 const INK_DARK = { r: 24, g: 24, b: 24 }
@@ -67,7 +72,6 @@ export function LogoV2({
   const { columns } = useTerminalSize()
 
   const ink = parseRGB(theme.text) ?? (themeName === 'light' ? INK_DARK : INK_LIGHT)
-  const patch = parseRGB(theme.inverseText) ?? (themeName === 'light' ? INK_LIGHT : INK_DARK)
   const showWhale = columns >= WHALE_MIN_COLUMNS
   const frameIndex = settled ? STANDARD_FRAME_INDEX : OPENING_SEQUENCE[step].frame
   const bigDeepSeek = renderBigTextSolid('DEEPSEEK', ink)
@@ -77,12 +81,7 @@ export function LogoV2({
     <Box flexDirection="column" marginTop={1}>
       <Box flexDirection="row" gap={3} width="100%" alignItems="center">
         {showWhale && (
-          <WhaleArt
-            frameIndex={frameIndex}
-            width={FULL_WHALE_WIDTH}
-            fill={toTriple(ink)}
-            patch={toTriple(patch)}
-          />
+          <WhaleArt frameIndex={frameIndex} width={FULL_WHALE_WIDTH} fill={toTriple(ink)} />
         )}
         <Box flexDirection="column" flexShrink={1}>
           <Text dimColor wrap="truncate-end">
@@ -99,7 +98,7 @@ export function LogoV2({
             </Text>
           ))}
           <Text dimColor wrap="truncate-end">
-            ────────────────────────
+            {RULE}
           </Text>
           <Text wrap="truncate-end">
             {model}

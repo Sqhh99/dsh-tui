@@ -1,7 +1,11 @@
 /**
- * Compact side-view whale for the splash, matched to docs/assets/logo.png:
- * body faces left, tail flukes up on the right, white eye and belly, dashed
- * water underneath. Palette: B fill · W contrasting patch · `.` empty.
+ * Side-view breaching whale for the splash, traced from docs/assets/logo.png:
+ * head and back sweep to the left, the fluke rises on the right with a notch
+ * between its two lobes, the underside opens into a pale crescent and the eye
+ * sits as a slit above it, with dashed water at the waterline.
+ *
+ * Palette: `B` ink · `.` empty (the terminal background shows through, which
+ * is what the reference uses for the belly, the eye and the fluke notch).
  */
 
 export interface WhaleFrame {
@@ -9,48 +13,69 @@ export interface WhaleFrame {
   readonly rows: readonly string[]
 }
 
-/** 28×16 sprite. Even row count so half-block pairing yields 8 terminal rows. */
+/**
+ * 28×24 sprite. Rows 0-20 are the whale, rows 21-22 the waterline dashes.
+ * The row count is even so half-block pairing yields exactly 12 terminal rows,
+ * matching the height of the wordmark column beside it.
+ */
 export const WHALE_FRAMES: readonly WhaleFrame[] = [
   {
     name: 'standard',
     rows: [
-      '.....................BB.....',
-      '....................BBBB....',
-      '...................BBBBB....',
-      '..................BB.BB.....',
-      '.................BB.........',
-      '......BBBBBBBBBBBB..........',
-      '.....BBWWBBBBBBBBB..........',
-      '....BBW...WWBBBBBB..........',
-      '...BBW......BBBBBB..........',
-      '...BB........BBBBB..........',
-      '...BB.......BBBBBB..........',
-      '....BB.....BBBBBB...........',
-      '.....BBBBBBBBBB.............',
-      '......BBBBBBB...............',
+      '....................B.......',
+      '...........BBB.....BB......B',
+      '....BBBBBBBBBB.....BBB....BB',
+      '...BBBBBBBBBBB......BBBB.BBB',
+      '..BBBBBBBBBBBBB.....BBBBBBBB',
+      '.BBBBBBBBBBBBBBB.....BBBBBB.',
+      '.BBBBBBBBBBBBBBBB.....BBBB..',
+      'BBBBBBBBBBBBBBBBBB....BBB...',
+      'BB.....BBBBBBB..BBBB..BBB...',
+      'BB.......BBBBBB..BBBBBBB....',
+      'BB........BBBBBB.BBBBBBB....',
+      'BBB........BBBBB..BBBBBB....',
+      'BBB.........BBBBBBBBBBB.....',
+      '.BB..........BBBBBBBBBB.....',
+      '.BBB.........BBBBBBBBBB.....',
+      '..BBB....B....BBBBBBBB......',
+      '..BBBB...BBB...BBBBBB.......',
+      '...BBBBB..BBB...BBBBBB......',
+      '....BBBBBBBBBBB..BBBBBB.....',
+      '......BBBBBBBBBBB...........',
+      '.BB.....BBBBBBB.............',
+      'BB.BBB...........BBBBBB.BBB.',
+      '......BBBBBBBB.BBBB..BBBB...',
       '............................',
-      '..BB..BBB..BBB..BB..........',
     ],
   },
   {
+    /** Same pose with the eye slit closed — the one beat of the intro. */
     name: 'blink',
     rows: [
-      '.....................BB.....',
-      '....................BBBB....',
-      '...................BBBBB....',
-      '..................BB.BB.....',
-      '.................BB.........',
-      '......BBBBBBBBBBBB..........',
-      '.....BBBBBBBBBBBBB..........',
-      '....BB....WWBBBBBB..........',
-      '...BB.......BBBBBB..........',
-      '...BB........BBBBB..........',
-      '...BB.......BBBBBB..........',
-      '....BB.....BBBBBB...........',
-      '.....BBBBBBBBBB.............',
-      '......BBBBBBB...............',
+      '....................B.......',
+      '...........BBB.....BB......B',
+      '....BBBBBBBBBB.....BBB....BB',
+      '...BBBBBBBBBBB......BBBB.BBB',
+      '..BBBBBBBBBBBBB.....BBBBBBBB',
+      '.BBBBBBBBBBBBBBB.....BBBBBB.',
+      '.BBBBBBBBBBBBBBBB.....BBBB..',
+      'BBBBBBBBBBBBBBBBBB....BBB...',
+      'BB.....BBBBBBBBBBBBB..BBB...',
+      'BB.......BBBBBBBBBBBBBB.....',
+      'BB........BBBBBBBBBBBBB.....',
+      'BBB........BBBBBBBBBBBB.....',
+      'BBB.........BBBBBBBBBBB.....',
+      '.BB..........BBBBBBBBBB.....',
+      '.BBB.........BBBBBBBBBB.....',
+      '..BBB....B....BBBBBBBB......',
+      '..BBBB...BBB...BBBBBB.......',
+      '...BBBBB..BBB...BBBBBB......',
+      '....BBBBBBBBBBB..BBBBBB.....',
+      '......BBBBBBBBBBB...........',
+      '.BB.....BBBBBBB.............',
+      'BB.BBB...........BBBBBB.BBB.',
+      '......BBBBBBBB.BBBB..BBBB...',
       '............................',
-      '..BB..BBB..BBB..BB..........',
     ],
   },
 ]
