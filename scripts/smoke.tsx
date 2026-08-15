@@ -165,15 +165,15 @@ const panelInstance = await render(
 )
 await new Promise(resolve => setTimeout(resolve, 600))
 const collapsed = plainText(panelStdout.frames)
-console.log('--- panel collapsed?', collapsed.includes('已加载上下文'), collapsed.includes('点击展开 · Ctrl+T'), !collapsed.includes('▼'))
+console.log('--- panel collapsed?', collapsed.includes('Context loaded'), collapsed.includes('Ctrl+T'), collapsed.includes('Tip:'))
 panelStdin.write(Buffer.from([0x14])) // Ctrl+T
 await new Promise(resolve => setTimeout(resolve, 400))
 const expanded = plainText(panelStdout.frames)
-console.log('--- panel expanded by Ctrl+T?', expanded.includes('▼'), expanded.includes('系统提示词 · 1 段'), expanded.includes('You are DeepSeek Harness.'))
+console.log('--- panel expanded by Ctrl+T?', expanded.includes('Tip:'), expanded.includes('System prompt'), expanded.includes('You are DeepSeek Harness.'))
 panelStdin.write(Buffer.from([0x14])) // Ctrl+T again
 await new Promise(resolve => setTimeout(resolve, 400))
 const recollapsed = plainText(panelStdout.frames)
-console.log('--- panel recollapsed by Ctrl+T?', recollapsed.includes('▶'))
+console.log('--- panel recollapsed by Ctrl+T?', recollapsed.includes('Tip:') && !recollapsed.includes('System prompt ·'))
 // unmount() 本身已等清理完成；这里不能再 waitUntilExit()——它的 resolve
 // 回调在 waitUntilExit 首次被调用时才装上（ink.tsx 的 exitPromise 惰性
 // 创建），unmount 之后才创建的 promise 没人再去 resolve，顶层 await 永远
