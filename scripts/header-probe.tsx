@@ -85,7 +85,7 @@ const openingPlain = plain(opening)
 const settledPlain = plain(stdout.frames.slice(-6).join(''))
 
 console.log('--- opening: has block font?', openingPlain.includes('█'))
-console.log('--- opening: has whale SGR truecolor?', /\x1b\[38;2;78;111;255m/.test(opening))
+console.log('--- opening: has whale SGR truecolor?', /\x1b\[38;2;\d+;\d+;\d+m/.test(opening))
 console.log('--- opening: has wordmark dsh-tui?', openingPlain.includes('dsh-tui'))
 console.log('--- frames during opening:', openingLen)
 console.log('--- frames opening->settle:', settledLen - openingLen)
@@ -128,16 +128,8 @@ console.log('--- settled: has wordmark dsh-tui?', full.includes('dsh-tui'))
 console.log('--- settled: has version?', full.includes('v0.1.0'))
 console.log('--- settled: has model?', full.includes('deepseek-v4-flash'))
 console.log('--- settled: has cwd?', full.includes('D:/code/projects/test'))
-console.log('--- settled: has tip?', full.includes('/model'))
-console.log('--- settled: has welcome?', full.includes('探索未至之境！'))
-// The welcome line sits centered under the whale art: 12 leading columns
-// (art bbox 3..34 → center 18.5, minus half of the 14-column text).
-const welcomeLine = full.split('\n').find(line => line.includes('探索未至之境！'))
-console.log(
-  '--- settled: welcome centered under whale?',
-  welcomeLine !== undefined && /^ {12}探索未至之境！/.test(welcomeLine),
-)
-console.log('--- settled: no divider?', !full.includes('─'))
+console.log('--- settled: has prompt mark?', full.includes('>_'))
+console.log('--- settled: has divider?', full.includes('─'))
 console.log('--- settled: model text is uncolored?', !/38;2;/.test(sgrBefore('deepseek-v4-flash')))
 console.log('--- settled: tip command text is uncolored?', !/38;2;/.test(sgrBefore('/model')))
 

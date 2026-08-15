@@ -2,20 +2,14 @@ import React from 'react'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { Box, Text, useAnimationFrame, useTerminalSize } from '../ui.js'
+import { Box, Text, useTerminalSize } from '../ui.js'
 import { getTheme } from '../theme.js'
 import { useTheme } from './design-system/ThemeProvider.js'
 import { parseRGB } from './Spinner/spinnerUtils.js'
-import { renderBigText } from './bigfont.js'
-import { BRAND, FLASH, ICE, PALE, sweep } from './shimmer.js'
+import { renderBigTextSolid } from './bigfont.js'
 import { STANDARD_FRAME_INDEX, WhaleArt } from './Whale.js'
 import { OPENING_SEQUENCE } from './whaleFrames.js'
 
-/**
- * Header badge version, read from the installed package.json so the display
- * never drifts from the published version. Falls back to a literal when the
- * package metadata is unreadable (unusual layouts).
- */
 const VERSION = (() => {
   try {
     const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'package.json')
@@ -25,33 +19,24 @@ const VERSION = (() => {
   }
 })()
 
-/** Below this width the whale hides and the header goes text-only. */
 const WHALE_MIN_COLUMNS = 64
+const FULL_WHALE_WIDTH = 28
 
-/**
- * Fixed whale box width: the tail-wag frames reach 4 columns further right
- * than the standard pose, and a pinned width keeps the text column from
- * shifting sideways during the opening animation.
- */
-const FULL_WHALE_WIDTH = 40
+const INK_LIGHT = { r: 232, g: 230, b: 224 }
+const INK_DARK = { r: 24, g: 24, b: 24 }
 
-/** `max` → `Max` (effort levels arrive lower-case from the adapter). */
 function capitalize(text: string): string {
   return text.length === 0 ? text : text[0].toUpperCase() + text.slice(1)
 }
 
+function toTriple(color: { r: number; g: number; b: number }): readonly [number, number, number] {
+  return [color.r, color.g, color.b]
+}
+
 /**
- * The header splash: one layout, two phases. The **opening** (~3.4s, once)
- * plays the hand-drawn whale animation (blink → water-spout bloom → tail
- * wag) and runs the shimmer sweeps; the **settled** header is the same
- * tree frozen at t=0 — whale on the standard pose, sweep highlights parked
- * off-screen, clock unsubscribed, zero timers.
- *
- * Layout: the 13-row pixel whale beside a text column of matching height —
- * the `✦ dsh-tui` wordmark with version, the `DEEPSEEK`/`HARNESS` tagline in
- * the 5-row block font (brand-blue → ice gradient), the model/effort and
- * cwd in plain text (no brand-color highlight).
- * Narrow terminals drop the whale and keep the text column.
+ * Splash matched to docs/assets/logo.png: monochrome leaping whale, 4-row
+ * outline wordmark, short blink, then a static header. Narrow terminals
+ * drop the whale.
  */
 export function LogoV2({
   model,
@@ -62,18 +47,11 @@ export function LogoV2({
   model: string
   effort?: string | undefined
   cwd: string
-  /** Test seam: mount straight into the settled header (probes skip the intro). */
   skipIntro?: boolean
 }): React.ReactNode {
   const [step, setStep] = React.useState(skipIntro ? OPENING_SEQUENCE.length : 0)
   const settled = step >= OPENING_SEQUENCE.length
 
-  // Opening clock: drives the shimmer sweep and big-text highlight only
-  // while the intro plays; `null` afterwards unsubscribes so the settled
-  // header never repaints. 60ms frames keep the sweep lively.
-  const [ref, time] = useAnimationFrame(settled ? null : 60)
-
-  // Frame chain: dwell per OPENING_SEQUENCE entry, then settle for good.
   React.useEffect(() => {
     if (settled) return
     const timer = setTimeout(() => {
@@ -88,27 +66,27 @@ export function LogoV2({
   const theme = getTheme(themeName)
   const { columns } = useTerminalSize()
 
-  const wordmarkRGB = parseRGB(theme.claude) ?? BRAND
-  const wordmarkShimmerRGB = parseRGB(theme.claudeShimmer) ?? ICE
-  const taglineRGB = parseRGB(theme.claudeBlue_FOR_SYSTEM_SPINNER) ?? ICE
-
+  const ink = parseRGB(theme.text) ?? (themeName === 'light' ? INK_DARK : INK_LIGHT)
+  const patch = parseRGB(theme.inverseText) ?? (themeName === 'light' ? INK_LIGHT : INK_DARK)
   const showWhale = columns >= WHALE_MIN_COLUMNS
   const frameIndex = settled ? STANDARD_FRAME_INDEX : OPENING_SEQUENCE[step].frame
-  // Frozen clock for the settled header: t=0 parks every sweep highlight
-  // off-screen, leaving the static gradient behind.
-  const t = settled ? 0 : time
-
-  const bigDeepSeek = renderBigText('DEEPSEEK', t, wordmarkRGB, taglineRGB, FLASH, 60)
-  const bigHarness = renderBigText('HARNESS', t, taglineRGB, PALE, FLASH, 60)
+  const bigDeepSeek = renderBigTextSolid('DEEPSEEK', ink)
+  const bigHarness = renderBigTextSolid('HARNESS', ink)
 
   return (
-    <Box ref={ref} flexDirection="column" marginTop={1}>
-      <Box flexDirection="row" gap={2} width="100%" alignItems="center">
-        {showWhale && <WhaleArt frameIndex={frameIndex} width={FULL_WHALE_WIDTH} />}
+    <Box flexDirection="column" marginTop={1}>
+      <Box flexDirection="row" gap={3} width="100%" alignItems="center">
+        {showWhale && (
+          <WhaleArt
+            frameIndex={frameIndex}
+            width={FULL_WHALE_WIDTH}
+            fill={toTriple(ink)}
+            patch={toTriple(patch)}
+          />
+        )}
         <Box flexDirection="column" flexShrink={1}>
-          <Text wrap="truncate-end">
-            {sweep('✦ dsh-tui', t, wordmarkRGB, wordmarkShimmerRGB, 60)}
-            <Text dimColor>{'  v' + VERSION}</Text>
+          <Text dimColor wrap="truncate-end">
+            {'dsh-tui  v' + VERSION}
           </Text>
           {bigDeepSeek.map((row, index) => (
             <Text key={`ds-${index}`} wrap="truncate-end">
@@ -120,12 +98,15 @@ export function LogoV2({
               {row}
             </Text>
           ))}
+          <Text dimColor wrap="truncate-end">
+            ────────────────────────
+          </Text>
           <Text wrap="truncate-end">
             {model}
-            {effort !== undefined && <Text dimColor>{' · ' + capitalize(effort) + ' effort'}</Text>}
+            {effort !== undefined && <Text dimColor>{'  ·  ' + capitalize(effort) + ' effort'}</Text>}
           </Text>
           <Text dimColor wrap="truncate-end">
-            {cwd}
+            {'>_  ' + cwd}
           </Text>
         </Box>
       </Box>
