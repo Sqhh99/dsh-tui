@@ -276,23 +276,23 @@ declare const dict: {
         readonly en: "… (truncated)";
     };
     readonly 'context-sections': {
-        readonly zh: "系统提示词 {{n}} 段";
+        readonly zh: "System prompt {{n}} sections";
         readonly en: "System prompt {{n}} sections";
     };
     readonly 'context-files': {
-        readonly zh: "工作区指令 ×{{n}}";
+        readonly zh: "Workspace instructions ×{{n}}";
         readonly en: "Workspace instructions ×{{n}}";
     };
     readonly 'context-runtime': {
-        readonly zh: "运行时上下文 {{n}} 项";
+        readonly zh: "Runtime context {{n}} items";
         readonly en: "Runtime context {{n}} items";
     };
     readonly 'context-skills': {
-        readonly zh: "技能 {{n}}";
+        readonly zh: "Skills {{n}}";
         readonly en: "Skills {{n}}";
     };
     readonly 'context-tools': {
-        readonly zh: "工具 {{n}}";
+        readonly zh: "Tools {{n}}";
         readonly en: "Tools {{n}}";
     };
     readonly 'skill-audit-prompt': {
@@ -324,7 +324,7 @@ declare const dict: {
         readonly en: "Use the vuln-check skill to run a security vulnerability check on the current project.";
     };
     readonly 'context-loaded': {
-        readonly zh: "已加载上下文";
+        readonly zh: "Context loaded";
         readonly en: "Context loaded";
     };
     readonly 'copied-chars': {
@@ -764,12 +764,12 @@ declare const dict: {
         readonly en: "{{base}} base · ~/.dsh-tui/themes/{{name}}.json";
     };
     readonly 'context-panel-collapse': {
-        readonly zh: "折叠";
-        readonly en: "Collapse";
+        readonly zh: "collapse";
+        readonly en: "collapse";
     };
     readonly 'context-panel-expand': {
-        readonly zh: "展开";
-        readonly en: "Expand";
+        readonly zh: "expand";
+        readonly en: "expand";
     };
     readonly 'context-panel-sections': {
         readonly zh: "系统提示词 · {{n}} 段";

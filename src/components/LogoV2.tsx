@@ -36,15 +36,6 @@ const WHALE_MIN_COLUMNS = 64
  */
 const FULL_WHALE_WIDTH = 40
 
-/**
- * Leading spaces that center the welcome line under the drawn whale: the
- * art's bounding box spans sprite columns 3..34 (center 18.5) of the
- * 40-wide box, and the tagline measure 14
- * columns — 18.5 − 7 = 11.5 → 12. Centered on the full 40-column box
- * instead would need 13, which reads one column right of the whale body.
- */
-const WELCOME_PAD = 12
-
 /** `max` → `Max` (effort levels arrive lower-case from the adapter). */
 function capitalize(text: string): string {
   return text.length === 0 ? text : text[0].toUpperCase() + text.slice(1)
@@ -58,11 +49,10 @@ function capitalize(text: string): string {
  * off-screen, clock unsubscribed, zero timers.
  *
  * Layout: the 13-row pixel whale beside a text column of matching height —
- * the `✦ dsh-TUI` wordmark with version, the `DEEPSEEK`/`HARNESS` tagline in
+ * the `✦ dsh-tui` wordmark with version, the `DEEPSEEK`/`HARNESS` tagline in
  * the 5-row block font (brand-blue → ice gradient), the model/effort and
- * cwd in plain text (no brand-color highlight), the startup tip, and below
- * the whale the welcome tagline, centered under the art, in ice
- * blue. Narrow terminals drop the whale and keep the text column.
+ * cwd in plain text (no brand-color highlight), and the startup tip.
+ * Narrow terminals drop the whale and keep the text column.
  */
 export function LogoV2({
   model,
@@ -118,7 +108,7 @@ export function LogoV2({
         {showWhale && <WhaleArt frameIndex={frameIndex} width={FULL_WHALE_WIDTH} />}
         <Box flexDirection="column" flexShrink={1}>
           <Text wrap="truncate-end">
-            {sweep('✦ dsh-TUI', t, wordmarkRGB, wordmarkShimmerRGB, 60)}
+            {sweep('✦ dsh-tui', t, wordmarkRGB, wordmarkShimmerRGB, 60)}
             <Text dimColor>{'  v' + VERSION}</Text>
           </Text>
           {bigDeepSeek.map((row, index) => (
@@ -148,9 +138,6 @@ export function LogoV2({
             <Text dimColor> {tr('logo-tip-tab')}</Text>
           </Text>
         </Box>
-      </Box>
-      <Box marginTop={1} paddingLeft={showWhale ? WELCOME_PAD : 2}>
-        <Text>{sweep(tr('logo-tagline'), t, taglineRGB, FLASH, 60)}</Text>
       </Box>
     </Box>
   )
