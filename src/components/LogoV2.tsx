@@ -1,5 +1,4 @@
 import React from 'react'
-import { t as tr } from '../i18n.js'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -51,7 +50,7 @@ function capitalize(text: string): string {
  * Layout: the 13-row pixel whale beside a text column of matching height —
  * the `✦ dsh-tui` wordmark with version, the `DEEPSEEK`/`HARNESS` tagline in
  * the 5-row block font (brand-blue → ice gradient), the model/effort and
- * cwd in plain text (no brand-color highlight), and the startup tip.
+ * cwd in plain text (no brand-color highlight).
  * Narrow terminals drop the whale and keep the text column.
  */
 export function LogoV2({
@@ -127,15 +126,6 @@ export function LogoV2({
           </Text>
           <Text dimColor wrap="truncate-end">
             {cwd}
-          </Text>
-          <Text wrap="truncate-end">
-            <Text dimColor>Tip: </Text>
-            /model
-            <Text dimColor> {tr('logo-tip-model')} · </Text>
-            /help
-            <Text dimColor> {tr('logo-tip-help')} · </Text>
-            Tab
-            <Text dimColor> {tr('logo-tip-tab')}</Text>
           </Text>
         </Box>
       </Box>

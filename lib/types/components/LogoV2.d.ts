@@ -9,7 +9,7 @@ import React from 'react';
  * Layout: the 13-row pixel whale beside a text column of matching height —
  * the `✦ dsh-tui` wordmark with version, the `DEEPSEEK`/`HARNESS` tagline in
  * the 5-row block font (brand-blue → ice gradient), the model/effort and
- * cwd in plain text (no brand-color highlight), and the startup tip.
+ * cwd in plain text (no brand-color highlight).
  * Narrow terminals drop the whale and keep the text column.
  */
 export declare function LogoV2({ model, effort, cwd, skipIntro, }: {
