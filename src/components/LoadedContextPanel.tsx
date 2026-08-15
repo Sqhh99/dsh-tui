@@ -58,7 +58,11 @@ export function LoadedContextPanel({
   return (
     <Box flexDirection="column" marginTop={1} marginBottom={1}>
       <Box paddingX={1} backgroundColor={open ? 'userMessageBackground' : undefined}>
-        <Text bold={open}>Tip: {t('context-loaded')} · {summary}</Text>
+        {/* Collapsed, this is a hint sitting under the splash, so only the
+            label carries color and the summary stays quiet. Expanding it
+            promotes the summary to full contrast as the panel's heading. */}
+        <Text color="suggestion" bold={open}>Tip: </Text>
+        <Text dimColor={!open} bold={open}>{t('context-loaded')} · {summary}</Text>
         <Text dimColor> (Ctrl+T {open ? t('context-panel-collapse') : t('context-panel-expand')})</Text>
       </Box>
       {open && (

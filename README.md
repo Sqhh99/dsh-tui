@@ -28,6 +28,8 @@ dsh plugin --profile dsh-tui add github:Sqhh99/dsh-tui
 
 pnpm ≥10 第一次会因 `allowBuilds` 失败。把提示的包名写进 `~/.dsh/profiles/dsh-tui/pnpm-workspace.yaml` 后再跑一次。
 
+启动页左侧是 `docs/assets/deepseek.png` 的鲸，用半块拼成实心剪影（盲文点阵采样更密，但点与点之间留空，填充区域会变成网眼）；右侧 `DEEPSEEK` / `HARNESS` 两行字标对齐同一右边缘，取主题品牌蓝做渐变。版本号在模型行，终端过窄时只留字标。`DSH_TUI_LOGO_GLYPHS=braille|sextant|half` 可改字形。
+
 `dsh-tui --resume` 读取 `~/.dsh-tui/resume.txt`（没有则读 `~/.dsh-cc/resume.txt`）。
 
 ## 叠层

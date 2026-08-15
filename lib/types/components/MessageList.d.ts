@@ -28,10 +28,10 @@ export declare function MessageList({ rows, expanded, expandedRows, selectedId, 
     onUnseenCount?: (count: number) => void;
 }): React.JSX.Element;
 /**
- * The header block pinned above the transcript: the DeepSeek pixel whale
- * with the wordmark, tagline, model/effort and cwd (`LogoV2`), plus the
- * welcome line. It scrolls away with the transcript once the conversation
- * fills the viewport (Claude Code shows its ✦ logo in the same slot).
+ * The header block pinned above the transcript: whale from
+ * `docs/assets/deepseek.png`, wordmark, and live model/cwd (`LogoV2`).
+ * It scrolls away with the transcript once the conversation fills
+ * the viewport.
  */
 export declare function LogoHeader({ model, effort, cwd, }: {
     model: string;

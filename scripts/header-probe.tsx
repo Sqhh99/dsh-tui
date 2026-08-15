@@ -1,21 +1,19 @@
 /**
- * Header probe: renders the LogoHeader (opening animation -> settled title
- * bar) into an in-memory terminal and verifies both phases.
+ * Header probe: renders LogoV2 into an in-memory terminal.
  * Run: node --import tsx/esm scripts/header-probe.tsx
  */
 process.env.FORCE_COLOR = '3'
 
-const [{ PassThrough, Writable }, React, { render, ThemeProvider }, { LogoHeader }, { LogoV2 }] = await Promise.all([
+const [{ PassThrough, Writable }, React, { render, ThemeProvider }, { LogoV2 }] = await Promise.all([
   import('node:stream'),
   import('react'),
   import('../src/ui.js'),
-  import('../src/components/MessageList.js'),
   import('../src/components/LogoV2.js'),
 ])
 
 class FakeStdout extends Writable {
-  columns = 100
-  rows = 30
+  columns = 130
+  rows = 40
   isTTY = true
   frames: string[] = []
   _write(chunk: unknown, _encoding: BufferEncoding, callback: () => void) {
@@ -44,10 +42,18 @@ class FakeStdin extends PassThrough {
   }
 }
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+const plain = (s: string) =>
+  s
+    .replace(/\x1b\[(\d+)C/g, (_, n) => ' '.repeat(Number(n)))
+    .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '')
+    .replace(/\x1b\]9;[^\x07]*\x07/g, '')
+
 const stdout = new FakeStdout()
 const instance = await render(
   <ThemeProvider>
-    <LogoHeader model="deepseek-v4-flash" effort="high" cwd="D:/code/projects/test" />
+    <LogoV2 model="deepseek-v4-flash" effort="high" cwd="D:/code/projects/test" />
   </ThemeProvider>,
   {
     stdout,
@@ -57,81 +63,32 @@ const instance = await render(
     patchConsole: false,
   },
 )
+await sleep(400)
+const raw = stdout.frames.join('')
+const full = plain(raw)
+const mosaicChars = (full.match(/[▀▄█\u2800-\u28FF]/g) ?? []).length
+const hasSextants = /[\u{1FB00}-\u{1FB3B}]/u.test(full)
+const hasTopBrand = /^\s*dsh-tui/m.test(full)
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-
-// Capture opening output (first ~1.5s: whale animating + block text).
-await sleep(1500)
-const openingLen = stdout.frames.length
-const opening = stdout.frames.join('')
-
-// Wait for the intro to finish (~3.4s sequence + margin), then watch for
-// any further repaints (there must be none once settled).
-await sleep(2600)
-const settledLen = stdout.frames.length
-await sleep(1200)
-const afterSettleLen = stdout.frames.length
-const all = stdout.frames.join('')
-
-const plain = (s: string) =>
-  s
-    .replace(/\x1b\[(\d+)C/g, (_, n) => ' '.repeat(Number(n)))
-    .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '')
-    .replace(/\x1b\]9;[^\x07]*\x07/g, '')
-
-const openingPlain = plain(opening)
-// The settled state starts at the chunk where the whale's final standard
-// pose lands; just take the last chunks (the whole text column repaints).
-const settledPlain = plain(stdout.frames.slice(-6).join(''))
-
-console.log('--- opening: has block font?', openingPlain.includes('█'))
-console.log('--- opening: has whale SGR truecolor?', /\x1b\[38;2;\d+;\d+;\d+m/.test(opening))
-console.log('--- opening: has wordmark dsh-tui?', openingPlain.includes('dsh-tui'))
-console.log('--- frames during opening:', openingLen)
-console.log('--- frames opening->settle:', settledLen - openingLen)
-console.log('--- frames after settle (must be 0):', afterSettleLen - settledLen)
+console.log('=== HEADER ===')
+console.log(full)
+console.log('--- whale cells?', mosaicChars > 20)
+console.log('--- no sextants?', !hasSextants)
+console.log('--- no top dsh-tui line?', !hasTopBrand)
+console.log('--- version on model line?', full.includes('v0.1.0') && full.includes('deepseek-v4-flash'))
+console.log('--- ink SGR?', /\x1b\[38;2;\d+;\d+;\d+m/.test(raw))
+console.log('--- has cwd?', full.includes('D:/code/projects/test'))
+console.log('--- has prompt mark?', full.includes('>_'))
+console.log('--- no tip line?', !full.includes('/model'))
 
 await instance.unmount()
-
-// Phase B: mount straight into the settled header (skipIntro) and read the
-// COMPLETE first paint — differential diffs can't show the full screen.
-const stdout2 = new FakeStdout()
-const instance2 = await render(
-  <ThemeProvider>
-    <LogoV2 model="deepseek-v4-flash" effort="high" cwd="D:/code/projects/test" skipIntro />
-  </ThemeProvider>,
-  {
-    stdout: stdout2,
-    stdin: new FakeStdin(),
-    stderr: new FakeStderr(),
-    exitOnCtrlC: false,
-    patchConsole: false,
-  },
+process.exit(
+  mosaicChars > 20
+    && !hasSextants
+    && !hasTopBrand
+    && full.includes('v0.1.0')
+    && full.includes('deepseek-v4-flash')
+    && full.includes('>_')
+    ? 0
+    : 1,
 )
-await sleep(600)
-const raw2 = stdout2.frames.join('')
-const full = plain(raw2)
-
-console.log()
-console.log('=== SETTLED FULL FIRST PAINT ===')
-console.log(full)
-// The model/tip text sits on the same terminal row as whale art (which
-// legitimately uses truecolor SGR), so check the SGR state AFTER the last
-// reset preceding the text — that is the text's own styling.
-const sgrBefore = (needle: string): string => {
-  const i = raw2.indexOf(needle)
-  const before = raw2.slice(0, i)
-  return before.slice(before.lastIndexOf('\x1b[0m'))
-}
-console.log('--- settled: has block font?', full.includes('█'))
-console.log('--- settled: has wordmark dsh-tui?', full.includes('dsh-tui'))
-console.log('--- settled: has version?', full.includes('v0.1.0'))
-console.log('--- settled: has model?', full.includes('deepseek-v4-flash'))
-console.log('--- settled: has cwd?', full.includes('D:/code/projects/test'))
-console.log('--- settled: has prompt mark?', full.includes('>_'))
-console.log('--- settled: has divider?', full.includes('─'))
-console.log('--- settled: model text is uncolored?', !/38;2;/.test(sgrBefore('deepseek-v4-flash')))
-console.log('--- settled: tip command text is uncolored?', !/38;2;/.test(sgrBefore('/model')))
-
-await instance2.unmount()
-process.exit(0)
