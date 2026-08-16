@@ -153,11 +153,11 @@ function HeaderTitle({ name, title, isTerminal, displayArgs }: {
     return (
       <>
         <Box flexShrink={0}>
-          <Text bold wrap="truncate-end">{name}</Text>
+          <Text color="inactive" wrap="truncate-end">{name}</Text>
         </Box>
         {displayArgs !== '' && (
           <Box flexWrap="nowrap">
-            <Text>({displayArgs})</Text>
+            <Text color="inactive">({displayArgs})</Text>
           </Box>
         )}
       </>
@@ -167,10 +167,10 @@ function HeaderTitle({ name, title, isTerminal, displayArgs }: {
     return (
       <>
         <Box flexShrink={0}>
-          <Text bold wrap="truncate-end">{name}</Text>
+          <Text color="inactive" wrap="truncate-end">{name}</Text>
         </Box>
         <Box flexWrap="nowrap">
-          <Text>({title})</Text>
+          <Text color="inactive">({title})</Text>
         </Box>
       </>
     )
@@ -179,7 +179,7 @@ function HeaderTitle({ name, title, isTerminal, displayArgs }: {
   if (trimmed === '') {
     return (
       <Box flexShrink={0}>
-        <Text bold wrap="truncate-end">{name}</Text>
+        <Text color="inactive" wrap="truncate-end">{name}</Text>
       </Box>
     )
   }
@@ -188,9 +188,9 @@ function HeaderTitle({ name, title, isTerminal, displayArgs }: {
   const tail = space === -1 ? '' : trimmed.slice(space)
   return (
     <Box flexWrap="nowrap">
-      <Text bold wrap="truncate-end">
+      <Text color="inactive" wrap="truncate-end">
         {head}
-        <Text bold={false}>{tail}</Text>
+        {tail}
       </Text>
     </Box>
   )
@@ -279,14 +279,14 @@ export function AssistantToolUseMessage({
           <HeaderTitle name={name} title={headerTitle} isTerminal={headerIsTerminal} displayArgs={displayArgs} />
           {!isRunning && (
             <Box flexWrap="nowrap">
-              <Text dimColor>{elapsedText}</Text>
+              <Text color="subtle">{elapsedText}</Text>
             </Box>
           )}
         </Box>
         {!collapsed && lines.map((line, index) => (
           <Box key={index} flexDirection="row">
             <Box width={5} flexShrink={0}>
-              <Text dimColor>{index === 0 ? GUTTER_FIRST : GUTTER_REST}</Text>
+              <Text color="subtle">{index === 0 ? GUTTER_FIRST : GUTTER_REST}</Text>
             </Box>
             <Box flexGrow={1}>
               <Text
@@ -297,9 +297,8 @@ export function AssistantToolUseMessage({
                       ? 'diffRemovedWord'
                       : line.tone === 'error'
                         ? 'error'
-                        : undefined
+                        : 'inactive'
                 }
-                dimColor={line.tone === 'dim'}
                 wrap="wrap"
               >
                 {line.text === '' ? ' ' : line.text}
