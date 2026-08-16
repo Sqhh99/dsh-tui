@@ -244,9 +244,16 @@ export function MessageList({
   // mounted coverage so burst scrolls never show blank spacer.
   React.useLayoutEffect(() => {
     let changed = false
+    let rowShrunk = false
     for (const [id, el] of localRefs.current) {
       const h = el.yogaNode?.getComputedHeight()
       if (h !== undefined && h > 0 && heightsRef.current.get(id) !== h) {
+        const previous = heightsRef.current.get(id)
+        // A mounted row whose Yoga height dropped is a real collapse (tool
+        // pin, Ctrl+O), not a virtualization spacer artifact. The renderer
+        // refuses to clamp scrollTop on shrink frames, so a sticky view
+        // can sit past the new max and paint blank until the next wheel.
+        if (previous !== undefined && h < previous - 1) rowShrunk = true
         if (heightsRef.current.size >= HEIGHTS_CACHE_MAX) {
           const oldest = heightsRef.current.keys().next().value
           if (oldest !== undefined) heightsRef.current.delete(oldest)
@@ -272,6 +279,14 @@ export function MessageList({
       } else {
         const min = Math.max(0, base + topPad - viewport)
         scrollHandle.setClampBounds(min, Math.max(min, base + mountedBottom - viewport))
+      }
+      if (rowShrunk) {
+        if (sticky) {
+          scrollHandle.scrollToBottom()
+        } else {
+          const max = Math.max(0, scrollHandle.getFreshScrollHeight() - viewport)
+          if (scrollHandle.getScrollTop() > max) scrollHandle.scrollTo(max)
+        }
       }
     }
     if (changed) setMeasureTick(t => t + 1)
@@ -450,12 +465,11 @@ function TranscriptRow({
     },
     [setRowRef, rowId],
   )
-  // Single click keeps CC's per-row verbose toggle on text rows. Tool cards
-  // stay header-only unless running or pinned — a single click must not
-  // open the body, or the first half of a double-click would expand then
-  // immediately collapse. Double-click on a tool pins/unpins the body;
-  // double-click on a chain head folds the chain. Always claim the
-  // double-click so ink does not word-select + copy-on-select the bubble.
+  // Only tool cards (and chain heads) take the mouse. A single click on
+  // assistant/user/thinking used to paint the whole bubble as "selected"
+  // with no way to dismiss it — that gesture is gone. Double-click on a
+  // tool pins/unpins the body; double-click on a chain head folds the
+  // chain. Always claim the double-click so ink does not word-select.
   const onClick = React.useCallback(
     (event: ClickEvent): void => {
       if (event.clickCount >= 2) {
@@ -469,8 +483,6 @@ function TranscriptRow({
         onToggleChain(rowId)
         return
       }
-      if (kind === 'tool') return
-      onToggleRow(rowId)
     },
     [onToggleRow, onToggleChain, rowId, anchorsChain, kind],
   )
@@ -484,7 +496,6 @@ function TranscriptRow({
             addMargin={addMargin}
             isSelected={isSelected}
             isExpanded={isExpanded}
-            onClick={onClick}
           />
         </Box>
       )
@@ -529,7 +540,6 @@ function TranscriptRow({
             addMargin={addMargin}
             isSelected={isSelected}
             isExpanded={isExpanded}
-            onClick={onClick}
           />
         </Box>
       )
@@ -545,7 +555,6 @@ function TranscriptRow({
             verbose={isExpanded || expanded || streaming}
             durationMs={durationMs}
             isSelected={isSelected}
-            onClick={onClick}
           />
         </Box>
       )

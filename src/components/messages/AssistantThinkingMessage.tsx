@@ -47,9 +47,9 @@ export function AssistantThinkingMessage({
         backgroundColor={isSelected ? 'messageActionsBackground' : undefined}
         onClick={onClick}
       >
-        <Text dimColor italic>
+        <Text color="subtle" italic>
           ∴ Thinking{duration}{' '}
-          <Text dimColor>
+          <Text color="subtle">
             <KeyboardShortcutHint shortcut="ctrl+o" action="expand" parens />
           </Text>
         </Text>
@@ -66,7 +66,7 @@ export function AssistantThinkingMessage({
       backgroundColor={isSelected ? 'messageActionsBackground' : undefined}
       onClick={onClick}
     >
-      <Text dimColor italic>
+      <Text color="subtle" italic>
         ∴ Thinking{duration}…
       </Text>
       <Box paddingLeft={2}>

@@ -20,6 +20,8 @@
 | `Ctrl+O` | Toggle transcript/verbose detail, including full reasoning and tool arguments/output |
 | `Ctrl+G` | Fold every tool chain into a summary row, or unfold them all |
 | Double-click a tool card | Expand or collapse that card's body (the running tool stays open; drag to copy) |
+
+A single click on assistant or user text no longer highlights the whole bubble; drag to copy. Thinking and tool cards use a quieter gray than the assistant's final reply.
 | `Ctrl+T` | Expand or collapse the startup loaded-context panel |
 | `Ctrl+R` | Open input-history search; repeat or press `Down` for the next result |
 | `Ctrl+L` | Clear and force a physical terminal redraw |
