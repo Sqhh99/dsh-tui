@@ -48,9 +48,11 @@ Host 上的模型工具行被关掉，改由 agent preset（`standard` / `code` 
 | 键 | 作用 |
 |---|---|
 | Enter | 发送（Shift+Enter 换行） |
-| Ctrl+C | 中断回合；空闲连按两次退出 |
+| Ctrl+C | 中断回合；空闲连按两次重启（恢复当前会话） |
 | Esc | 关菜单；空输入双击 = 时间回溯 |
 | Ctrl+O | 展开/收起思考与工具详情 |
+| Ctrl+G | 折叠/展开全部工具链（双击步骤行折叠单条） |
+| Ctrl+D | 空闲连按两次退出 |
 | / | 斜杠命令 |
 
 完整键位与命令见 [docs/interaction.md](docs/interaction.md)。

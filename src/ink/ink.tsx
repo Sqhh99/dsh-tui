@@ -19,7 +19,7 @@ import * as dom from './dom.js';
 import { KeyboardEvent } from './events/keyboard-event.js';
 import { FocusManager } from './focus.js';
 import { emptyFrame, type Frame, type FrameEvent } from './frame.js';
-import { dispatchClick, dispatchHover } from './hit-test.js';
+import { dispatchClick, dispatchDoubleClick, dispatchHover } from './hit-test.js';
 import instances from './instances.js';
 import { LogUpdate } from './log-update.js';
 import { nodeCache } from './node-cache.js';
@@ -1284,6 +1284,18 @@ export default class Ink {
     const blank = isEmptyCellAt(this.frontFrame.screen, col, row);
     return dispatchClick(this.rootNode, col, row, blank);
   }
+
+  /**
+   * Offer the second click of a double-click to the DOM. Reports true only
+   * when a handler claimed it with stopImmediatePropagation() — see
+   * dispatchDoubleClick in hit-test.ts for why "has an onClick" is not
+   * enough.
+   */
+  dispatchDoubleClick(col: number, row: number): boolean {
+    if (!this.altScreenActive) return false;
+    const blank = isEmptyCellAt(this.frontFrame.screen, col, row);
+    return dispatchDoubleClick(this.rootNode, col, row, blank);
+  }
   dispatchHover(col: number, row: number): void {
     if (!this.altScreenActive) return;
     dispatchHover(this.rootNode, col, row, this.hoveredNodes);
@@ -1346,9 +1358,15 @@ export default class Ink {
    * PRESS (not release) so the highlight appears immediately and drag can
    * extend the selection word-by-word / line-by-line. Falls back to
    * char-mode startSelection if the click lands on a noSelect cell.
+   *
+   * A double-click is offered to the DOM first: a handler that consumes it
+   * (transcript tool-chain collapse) owns the gesture, and we return without
+   * touching the selection so the row does not also highlight a word.
+   * Triple-click always belongs to line selection.
    */
   handleMultiClick(col: number, row: number, count: 2 | 3): void {
     if (!this.altScreenActive) return;
+    if (count === 2 && this.dispatchDoubleClick(col, row)) return;
     const screen = this.frontFrame.screen;
     // selectWordAt/selectLineAt no-op on noSelect/out-of-bounds. Seed with
     // a char-mode selection so the press still starts a drag even if the

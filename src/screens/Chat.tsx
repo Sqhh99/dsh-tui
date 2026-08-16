@@ -1,7 +1,7 @@
 import React from 'react'
 import { t, getLang, setLang, isLang, writeLangPref, subscribeLang, type I18nKey } from '../i18n.js'
 import { Box, Text, useInput, ScrollBox, type ScrollBoxHandle, useTheme } from '../ui.js'
-import { POINTER } from '../cc/figures.js'
+import { POINTER, TICK } from '../cc/figures.js'
 import { formatTokens } from '../cc/format.js'
 import type { LlmModelInfo } from '@deepseek-ai/dsh-llm'
 import type { Channel, ChatRow, PresetOption } from '../channel.js'
@@ -16,6 +16,7 @@ import { useSelection } from '../ink/hooks/use-selection.js'
 import { NoSelect } from '../ink/components/NoSelect.js'
 import instances from '../ink/instances.js'
 import { LogoHeader, MessageList } from '../components/MessageList.js'
+import { findToolChains } from '../components/toolChain.js'
 import { PromptInput, type PromptController } from '../components/PromptInput.js'
 import { GoalTodoPanel } from '../components/GoalTodoPanel.js'
 import { LoadedContextPanel } from '../components/LoadedContextPanel.js'
@@ -23,10 +24,20 @@ import { StatusLine } from './StatusLine.js'
 import { WorkingSpinner, useThinkingStatus } from '../components/WorkingSpinner.js'
 import { ActivityLine, contextPressurePct } from '../components/ActivityLine.js'
 import { ModelPicker } from '../components/ModelPicker.js'
+import { EffortPicker, type EffortOption } from '../components/EffortPicker.js'
 import { ResumePicker } from '../components/ResumePicker.js'
 import { ActivityPicker } from '../components/ActivityPicker.js'
 import { PresetPicker } from '../components/PresetPicker.js'
 import { ThemePicker, getThemeOptions } from '../components/ThemePicker.js'
+import { StatusLinePicker } from '../components/StatusLinePicker.js'
+import {
+  DEFAULT_STATUS_LINE,
+  STATUS_SEGMENTS,
+  readStatusLinePref,
+  resolveStatusLinePrefs,
+  writeStatusLinePref,
+  type StatusLinePrefs,
+} from '../statusLinePrefs.js'
 import { FRAME_PRESETS, PRESET_NAMES } from '../components/activityFrames.js'
 import { ThinkingToggle } from '../components/ThinkingToggle.js'
 import { HistorySearchDialog } from '../components/HistorySearchDialog.js'
@@ -106,11 +117,15 @@ export function Chat({
   channel,
   questionStore,
   onExit,
+  onRestart,
   onUpdate,
 }: {
   channel: Channel
   questionStore: QuestionStore
   onExit: () => void
+  /** Leave and come straight back up on the same session (Ctrl+C). Falls
+   *  back to a plain exit when the host cannot relaunch. */
+  onRestart?: () => void
   /** Update the installed package and restart the current TUI process. */
   onUpdate?: () => void
 }) {
@@ -144,9 +159,31 @@ export function Chat({
   const [expandedRows, setExpandedRows] = React.useState<ReadonlySet<number>>(
     () => new Set(),
   )
+  /** Anchor row ids whose tool chain is folded (web client's trajectory
+   *  collapse). Everything starts expanded and nothing ever auto-collapses,
+   *  matching upstream; the state is view-local and not persisted. */
+  const [collapsedChains, setCollapsedChains] = React.useState<ReadonlySet<number>>(
+    () => new Set(),
+  )
+  // Row ids restart at 0 whenever the transcript is rebuilt — /new, /resume,
+  // /rewind and the fork behind /model all do that, and they all land on a
+  // fresh agent. Row-keyed view state must not survive that, or ids from the
+  // old conversation would expand/fold unrelated rows in the new one.
+  // (`/clear` keeps the same agent and clears these in its own handler.)
+  React.useEffect(() => {
+    setExpandedRows(new Set())
+    setCollapsedChains(new Set())
+    setSelectedId(null)
+    setSelectionActive(false)
+  }, [channel.agentId])
   const [modelPickerOpen, setModelPickerOpen] = React.useState(false)
   const [models, setModels] = React.useState<readonly LlmModelInfo[]>([])
   const [modelIndex, setModelIndex] = React.useState(0)
+  /** `/effort` reasoning-tier picker: the adapter's list loads async. */
+  const [effortPickerOpen, setEffortPickerOpen] = React.useState(false)
+  const [effortOptions, setEffortOptions] = React.useState<readonly EffortOption[]>([])
+  const [effortDefault, setEffortDefault] = React.useState<string | undefined>(undefined)
+  const [effortIndex, setEffortIndex] = React.useState(0)
   const [resumePickerOpen, setResumePickerOpen] = React.useState(false)
   const [resumeSessions, setResumeSessions] = React.useState<readonly SessionRecord[]>([])
   const [resumeIndex, setResumeIndex] = React.useState(0)
@@ -161,6 +198,17 @@ export function Chat({
   const [themePickerOpen, setThemePickerOpen] = React.useState(false)
   const [themeIndex, setThemeIndex] = React.useState(0)
   const [themeName, setTheme] = useTheme()
+  /** `/statusline` footer-segment editor. `statusLine` is what the footer
+   *  renders; while the picker is open it renders the draft instead, so
+   *  toggling previews live and Esc restores by dropping the draft. */
+  const [statusLine, setStatusLine] = React.useState<StatusLinePrefs>(() =>
+    resolveStatusLinePrefs(readStatusLinePref()),
+  )
+  const [statusLineOpen, setStatusLineOpen] = React.useState(false)
+  const [statusLineIndex, setStatusLineIndex] = React.useState(0)
+  const [statusLineDraft, setStatusLineDraft] = React.useState<StatusLinePrefs>(
+    () => ({ ...DEFAULT_STATUS_LINE }),
+  )
   const [showAllMessages, setShowAllMessages] = React.useState(false)
   const [thinkingVisible, setThinkingVisible] = React.useState(true)
   const [thinkingOpen, setThinkingOpen] = React.useState(false)
@@ -227,12 +275,18 @@ export function Chat({
   // Live view into the prompt's text for the Ctrl+C rule (clears text when
   // non-empty; the double-press exit only arms on an empty input).
   const promptControllerRef = React.useRef<PromptController | null>(null)
-  const requestExit = () => {
+  /**
+   * The armed double-press. `restart` picks what the confirmed second press
+   * does: Ctrl+C comes back up on the same session, Ctrl+D still leaves for
+   * the shell — so there is always a way out that does not relaunch.
+   */
+  const requestExit = (restart = false) => {
+    const leave = restart && onRestart !== undefined ? onRestart : onExit
     if (exitPendingRef.current) {
-      onExit()
+      leave()
     } else {
       exitPendingRef.current = true
-      channel.notify('Press Ctrl+C again to exit')
+      channel.notify(restart && onRestart !== undefined ? t('exit-arm-restart') : t('exit-arm'))
       exitTimerRef.current = setTimeout(() => {
         exitPendingRef.current = false
       }, 3000)
@@ -405,6 +459,39 @@ export function Chat({
         ])
         return true
       }
+      case 'statusline': {
+        // Bare `/statusline` opens the segment editor; `/statusline status`
+        // lists the current on/off state; `/statusline reset` restores the
+        // full default footer. The choice persists to
+        // ~/.dsh-tui/statusline.json.
+        const parts = rawInput.trim().split(/\s+/).filter(Boolean)
+        if (parts[0] === 'status') {
+          setHelpOpen(false)
+          channel.pushLocal('/statusline', [
+            t('statusline-status'),
+            ...STATUS_SEGMENTS.map(
+              segment =>
+                `  ${statusLine[segment] ? TICK : ' '} ${t(`statusline-segment-${segment}`)}`,
+            ),
+          ])
+          return true
+        }
+        if (parts[0] === 'reset') {
+          setHelpOpen(false)
+          const defaults = { ...DEFAULT_STATUS_LINE }
+          setStatusLine(defaults)
+          const ok = writeStatusLinePref(defaults)
+          channel.notify(ok ? t('statusline-reset') : t('statusline-write-failed'), {
+            color: ok ? 'success' : 'error',
+          })
+          return true
+        }
+        setHelpOpen(false)
+        setStatusLineDraft({ ...statusLine })
+        setStatusLineIndex(0)
+        setStatusLineOpen(true)
+        return true
+      }
       case 'theme': {
         // Bare `/theme` opens the interactive color picker (built-in
         // palettes + user themes from ~/.dsh-tui/themes); `/theme <name>`
@@ -451,6 +538,7 @@ export function Chat({
         // channel.clear() resets row ids to 0; stale expanded/selection
         // state would mis-highlight fresh rows (known-limitation fix).
         setExpandedRows(new Set())
+        setCollapsedChains(new Set())
         setSelectedId(null)
         setSelectionActive(false)
         return true
@@ -471,6 +559,62 @@ export function Chat({
           setModelIndex(index >= 0 ? index : 0)
         })
         return true
+      case 'effort': {
+        // Bare `/effort` opens the tier picker (the adapter's own levels for
+        // the live route); `/effort <id>` sets one directly; `/effort status`
+        // reports the current level and what else is on offer. The choice
+        // persists to ~/.dsh-tui/effort.json, same as Shift+Tab.
+        const parts = rawInput.trim().split(/\s+/).filter(Boolean)
+        if (parts[0] === 'status') {
+          setHelpOpen(false)
+          void channel.listEfforts().then(({ efforts, defaultEffort, failed }) => {
+            if (failed) return
+            channel.pushLocal('/effort', [
+              channel.reasoningEffort !== undefined
+                ? t('effort-current', { name: channel.reasoningEffort })
+                : defaultEffort !== undefined
+                  ? t('effort-current', { name: `${defaultEffort} ${t('effort-default-suffix')}` })
+                  : t('effort-none'),
+              t('effort-available', {
+                ids: efforts.length > 0 ? efforts.map(effort => effort.id).join(', ') : '—',
+              }),
+              t('effort-switch-hint'),
+            ])
+          })
+          return true
+        }
+        if (parts.length > 0) {
+          setHelpOpen(false)
+          void channel.setEffort(parts[0])
+          return true
+        }
+        setHelpOpen(false)
+        setEffortOptions([])
+        setEffortDefault(undefined)
+        setEffortPickerOpen(true)
+        void channel.listEfforts().then(({ efforts, defaultEffort, failed }) => {
+          // A single tier (or none) is nothing to pick from — say so through
+          // the existing notifications instead of opening an empty pane.
+          if (failed || efforts.length <= 1) {
+            setEffortPickerOpen(false)
+            if (!failed) {
+              channel.notify(
+                efforts.length === 1
+                  ? t('effort-single-tier', { name: efforts[0]!.name })
+                  : t('effort-unsupported'),
+                { color: 'warning' },
+              )
+            }
+            return
+          }
+          setEffortOptions(efforts)
+          setEffortDefault(defaultEffort)
+          const current = channel.reasoningEffort ?? defaultEffort
+          const index = efforts.findIndex(effort => effort.id === current)
+          setEffortIndex(index >= 0 ? index : 0)
+        })
+        return true
+      }
       case 'thinking':
         setHelpOpen(false)
         setThinkingOpen(true)
@@ -832,11 +976,21 @@ export function Chat({
   }
   // useCallback: these feed MessageList → MemoRow's shallow compare; fresh
   // closures each render would defeat every row's memo.
-  const toggleRowExpanded = React.useCallback((rowId: number) => {
+  const toggleRowExpanded = React.useCallback((rowId: number, force?: boolean) => {
     setExpandedRows((previous) => {
+      const want = force ?? !previous.has(rowId)
+      if (want === previous.has(rowId)) return previous
       const next = new Set(previous)
-      if (next.has(rowId)) next.delete(rowId)
-      else next.add(rowId)
+      if (want) next.add(rowId)
+      else next.delete(rowId)
+      return next
+    })
+  }, [])
+  const toggleChain = React.useCallback((anchorId: number) => {
+    setCollapsedChains((previous) => {
+      const next = new Set(previous)
+      if (next.has(anchorId)) next.delete(anchorId)
+      else next.add(anchorId)
       return next
     })
   }, [])
@@ -971,6 +1125,20 @@ export function Chat({
       }
       return
     }
+    if (effortPickerOpen) {
+      if (key.upArrow) {
+        setEffortIndex(index => (index <= 0 ? effortOptions.length - 1 : index - 1))
+      } else if (key.downArrow) {
+        setEffortIndex(index => (index >= effortOptions.length - 1 ? 0 : index + 1))
+      } else if (key.return) {
+        setEffortPickerOpen(false)
+        const effort = effortOptions[effortIndex]
+        if (effort !== undefined) void channel.setEffort(effort.id)
+      } else if (key.escape) {
+        setEffortPickerOpen(false)
+      }
+      return
+    }
     if (modelPickerOpen) {
       if (key.upArrow) {
         setModelIndex(index => (index <= 0 ? models.length - 1 : index - 1))
@@ -1021,6 +1189,35 @@ export function Chat({
         if (option) void channel.switchPreset(option.id)
       } else if (key.escape) {
         setPresetPickerOpen(false)
+      }
+      return
+    }
+    if (statusLineOpen) {
+      // Space toggles the focused segment in the draft; the footer renders
+      // that draft while the picker is open, so the change previews live.
+      // Enter persists, Esc drops the draft and the footer snaps back.
+      if (key.upArrow) {
+        setStatusLineIndex(index => (index <= 0 ? STATUS_SEGMENTS.length - 1 : index - 1))
+      } else if (key.downArrow) {
+        setStatusLineIndex(index => (index >= STATUS_SEGMENTS.length - 1 ? 0 : index + 1))
+      } else if (input === ' ') {
+        const segment = STATUS_SEGMENTS[statusLineIndex]
+        if (segment !== undefined) {
+          setStatusLineDraft(previous => ({ ...previous, [segment]: !previous[segment] }))
+        }
+      } else if (key.return) {
+        setStatusLineOpen(false)
+        setStatusLine(statusLineDraft)
+        const ok = writeStatusLinePref(statusLineDraft)
+        const shown = STATUS_SEGMENTS.filter(segment => statusLineDraft[segment]).length
+        channel.notify(
+          ok
+            ? t('statusline-saved', { n: shown, total: STATUS_SEGMENTS.length })
+            : t('statusline-write-failed'),
+          { color: ok ? 'success' : 'error' },
+        )
+      } else if (key.escape) {
+        setStatusLineOpen(false)
       }
       return
     }
@@ -1121,8 +1318,7 @@ export function Chat({
       return
     }
     if (key.ctrl && input === 't') {
-      // Toggle the startup loaded-context panel (keyboard only — the
-      // ported ink core handles no mouse clicks).
+      // Toggle the startup loaded-context panel.
       setLoadedContextOpen(previous => !previous)
     }
     if (key.ctrl && input === 'r' && !helpOpen) {
@@ -1141,7 +1337,11 @@ export function Chat({
       } else if (key.downArrow) {
         moveSelection(1)
       } else if (key.return && selectedId !== null) {
-        toggleRowExpanded(selectedId)
+        // Enter on a row whose chain is folded unfolds it first (the web
+        // client's Enter/Space on a collapsed summary row); otherwise it
+        // keeps CC's per-row verbose toggle.
+        if (collapsedChains.has(selectedId)) toggleChain(selectedId)
+        else toggleRowExpanded(selectedId)
       } else if (key.escape) {
         setSelectionActive(false)
         setSelectedId(null)
@@ -1163,6 +1363,20 @@ export function Chat({
     } else if (key.ctrl && input === 'o') {
       // Leaving transcript mode (Ctrl+O) — search was already handled above.
       setExpanded(previous => !previous)
+    } else if (key.ctrl && input === 'g') {
+      // The web client's ⊟/⊞ Calls toolbar button: fold every tool chain, or
+      // unfold them all once they already are. Also the mouse-free path —
+      // double-click only exists inside the alt screen.
+      const anchors = [...findToolChains(channel.rows).keys()]
+      if (anchors.length === 0) {
+        channel.notify(t('chain-none'), { timeoutMs: 2000 })
+      } else if (anchors.every(anchorId => collapsedChains.has(anchorId))) {
+        setCollapsedChains(new Set())
+        channel.notify(t('chain-expanded-all', { n: anchors.length }), { timeoutMs: 2000 })
+      } else {
+        setCollapsedChains(new Set(anchors))
+        channel.notify(t('chain-collapsed-all', { n: anchors.length }), { timeoutMs: 2000 })
+      }
     } else if (input === '/' && !key.ctrl && !key.meta) {
       // `/` in transcript mode (Ctrl+O expanded, CC's REPL semantics:
       // search is active on the transcript screen where `/` isn't a command).
@@ -1176,10 +1390,13 @@ export function Chat({
         event.stopImmediatePropagation()
       }
     } else if (key.ctrl && (input === 'c' || input === 'd')) {
-      // CC's app:exit — ctrl+c interrupts a running turn; idle ctrl+c
+      // CC's app:exit ladder — ctrl+c interrupts a running turn; idle ctrl+c
       // CLEARS a non-empty prompt (single press) and only arms the
-      // double-press exit when the input is empty; ctrl+d keeps the
-      // time-based double-press exit regardless.
+      // double-press when the input is empty; ctrl+d keeps the time-based
+      // double-press regardless.
+      //
+      // The confirmed press differs by key: ctrl+c RESTARTS (the process
+      // comes back up on this same session), ctrl+d exits to the shell.
       if (channel.working) {
         channel.cancel()
       } else if (input === 'c' && promptControllerRef.current?.hasText()) {
@@ -1188,7 +1405,7 @@ export function Chat({
         exitPendingRef.current = false
         if (exitTimerRef.current) clearTimeout(exitTimerRef.current)
       } else {
-        requestExit()
+        requestExit(input === 'c')
       }
     } else if (key.ctrl && input === 'l') {
       // CC's app:redraw — clear the physical terminal and repaint.
@@ -1205,8 +1422,9 @@ export function Chat({
   const activityWarnPct = contextPressurePct(channel.lastUsage, channel.contextWindow)
   /** Prompt input is inert while a modal dialog owns the keyboard. */
   const promptSelectionActive =
-    selectionActive || modelPickerOpen || resumePickerOpen || activityPickerOpen ||
-    presetPickerOpen || themePickerOpen || thinkingOpen || historyOpen || rewindOpen || searchOpen
+    selectionActive || modelPickerOpen || effortPickerOpen || resumePickerOpen || activityPickerOpen ||
+    presetPickerOpen || themePickerOpen || statusLineOpen || thinkingOpen || historyOpen ||
+    rewindOpen || searchOpen
 
   return (
     <Box flexDirection="column" flexGrow={1} width="100%">
@@ -1242,6 +1460,8 @@ export function Chat({
           rows={channel.rows}
           expanded={expanded}
           expandedRows={expandedRows}
+          collapsedChains={collapsedChains}
+          onToggleChain={toggleChain}
           selectedId={selectionActive ? selectedId : null}
           onToggleRow={toggleRowExpanded}
           model={channel.model}
@@ -1328,6 +1548,20 @@ export function Chat({
             )}
           </Box>
         )}
+        {effortPickerOpen && (
+          <Box flexDirection="column" marginTop={1}>
+            {effortOptions.length === 0 ? (
+              <EffortPickerLoading />
+            ) : (
+              <EffortPicker
+                efforts={effortOptions}
+                focusIndex={effortIndex}
+                currentEffort={channel.reasoningEffort}
+                defaultEffort={effortDefault}
+              />
+            )}
+          </Box>
+        )}
         {activityPickerOpen && (
           <Box flexDirection="column" marginTop={1}>
             <ActivityPicker
@@ -1348,6 +1582,11 @@ export function Chat({
         {themePickerOpen && (
           <Box flexDirection="column" marginTop={1}>
             <ThemePicker focusIndex={themeIndex} currentTheme={themeName} />
+          </Box>
+        )}
+        {statusLineOpen && (
+          <Box flexDirection="column" marginTop={1}>
+            <StatusLinePicker draft={statusLineDraft} focusIndex={statusLineIndex} />
           </Box>
         )}
         {historyOpen && (
@@ -1399,6 +1638,9 @@ export function Chat({
           channel={channel}
           selectionActive={selectionActive}
           helpOpen={helpOpen}
+          // While the editor is open the footer previews the draft, so Space
+          // shows its effect immediately and Esc snaps back.
+          segments={statusLineOpen ? statusLineDraft : statusLine}
         />
       </Box>
     </Box>
@@ -1462,6 +1704,23 @@ function NewMessagesPill({
 }
 
 /** /model while the provider catalog is still loading (CC's LoadingState). */
+function EffortPickerLoading(): React.ReactNode {
+  return (
+    <Pane color="permission">
+      <Box flexDirection="column" gap={1}>
+        <Text bold color="permission">
+          {t('effort-title')}
+        </Text>
+        <LoadingState
+          message={t('effort-loading')}
+          bold
+          subtitle={t('effort-loading-subtitle')}
+        />
+      </Box>
+    </Pane>
+  )
+}
+
 function ModelPickerLoading(): React.ReactNode {
   return (
     <Pane color="permission">

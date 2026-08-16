@@ -387,6 +387,13 @@ export interface Channel {
    *  adapter's own level list (dsh parity: deepseek Off→High→Max), taking
    *  effect on the next request and persisting across restarts. */
   cycleEffort(): Promise<void>
+  /** The live route's reasoning tiers, for the `/effort` picker. `failed`
+   *  marks a lookup that already notified its own reason, so callers stay
+   *  silent instead of adding a second message. */
+  listEfforts(): Promise<EffortTiers>
+  /** Pin one adapter-declared reasoning tier (`/effort <id>` and the picker),
+   *  validated against the live route; persists like cycleEffort. */
+  setEffort(id: string): Promise<void>
   /** The preset the CURRENT session runs under (issue #8), resolved from its
    *  log at create/resume time; undefined when no roster is mounted. */
   readonly agentPreset: string | undefined
@@ -451,6 +458,18 @@ export interface PresetOption {
   /** Present when the roster marked this preset unloadable (shown verbatim). */
   broken?: string
   isDefault: boolean
+}
+
+/** The live route's reasoning tiers (see {@link Channel.listEfforts}). */
+export interface EffortTiers {
+  /** Adapter-declared tiers, in the adapter's own display order. */
+  efforts: ReadonlyArray<{ id: string; name: string; description?: string }>
+  /** The tier that applies when nothing is pinned, when the adapter says. */
+  defaultEffort?: string
+  /** True when the lookup could not run (no llm service, or resolve threw).
+   *  The failure was already notified — callers must not add a second
+   *  message, and must not read the empty list as "no tiers". */
+  failed: boolean
 }
 
 /** @internal */
@@ -550,6 +569,10 @@ export interface ChannelState {
   switchModel(provider: string, model: string): Promise<boolean>
   /** Cycle reasoning effort (see the public Channel type). */
   cycleEffort(): Promise<void>
+  /** The route's reasoning tiers (see the public Channel type). */
+  listEfforts(): Promise<EffortTiers>
+  /** Pin one reasoning tier (see the public Channel type). */
+  setEffort(id: string): Promise<void>
   /** The preset the current session runs under (see the public Channel type). */
   agentPreset: string | undefined
   /** The roster's presets for the `/preset` picker (see the public Channel type). */
@@ -1005,28 +1028,75 @@ export function createChannel(
     }
   }
 
-  /** Shift+Tab: cycle the live route's adapter-owned reasoning efforts in
-   *  the adapter's own display order (dsh parity — deepseek: Off→High→Max).
-   *  The choice persists to ~/.dsh-tui/effort.json and follows future agents
-   *  on this channel (resume/model switch re-validate it per route). */
-  const cycleEffort = async (): Promise<void> => {
+  /** The live route's adapter-owned reasoning tiers, in the adapter's own
+   *  display order. Resolution failures notify and yield an empty list, so
+   *  callers can treat "no tiers" as the single unsupported case. */
+  const listEfforts = async (): Promise<EffortTiers> => {
     if (llmRuntime === undefined) {
       state.notify(t('effort-unavailable'), { color: 'error' })
-      return
+      return { efforts: [], failed: true }
     }
-    let efforts: ReadonlyArray<{ id: string; name: string }>
-    let defaultEffort: string | undefined
     try {
       const info = await llmRuntime.resolveModelInfo(state.provider, state.model)
-      efforts = info.reasoning?.efforts ?? []
-      defaultEffort = info.reasoning?.defaultEffort
+      return {
+        efforts: info.reasoning?.efforts ?? [],
+        failed: false,
+        ...info.reasoning?.defaultEffort !== undefined
+          ? { defaultEffort: info.reasoning.defaultEffort }
+          : {},
+      }
     } catch (error) {
       state.notify(t('effort-read-failed', { error: error instanceof Error ? error.message : String(error) }), {
         color: 'error',
         timeoutMs: 8000,
       })
+      return { efforts: [], failed: true }
+    }
+  }
+
+  /** Pin an already-validated tier: routing override, persistence, and the
+   *  notification. Split out so cycleEffort does not resolve the route a
+   *  second time just to re-find a tier it already holds. */
+  const applyEffort = (chosen: { id: string; name: string }): void => {
+    selection.current = {
+      provider: state.provider,
+      model: state.model,
+      reasoningEffort: ReasoningEffortId(chosen.id),
+    }
+    preferredEffort = chosen.id
+    state.reasoningEffort = chosen.id
+    if (!writeEffortPref(chosen.id)) {
+      state.notify(t('effort-pref-write-failed'), { color: 'warning' })
+    }
+    state.notify(t('effort-switched', { name: chosen.name }))
+    state.emit()
+  }
+
+  /** Pin one adapter-declared effort tier on the live route, validating the
+   *  id against it first — `/effort <id>` and the picker land here. */
+  const setEffort = async (id: string): Promise<void> => {
+    const { efforts, failed } = await listEfforts()
+    if (failed) return // listEfforts already said why.
+    const chosen = efforts.find(effort => effort.id === id)
+    if (chosen === undefined) {
+      state.notify(
+        efforts.length === 0
+          ? t('effort-unsupported')
+          : t('effort-unknown', { id, ids: efforts.map(effort => effort.id).join(', ') }),
+        { color: 'error' },
+      )
       return
     }
+    applyEffort(chosen)
+  }
+
+  /** Shift+Tab: cycle the live route's adapter-owned reasoning efforts in
+   *  the adapter's own display order (dsh parity — deepseek: Off→High→Max).
+   *  The choice persists to ~/.dsh-tui/effort.json and follows future agents
+   *  on this channel (resume/model switch re-validate it per route). */
+  const cycleEffort = async (): Promise<void> => {
+    const { efforts, defaultEffort, failed } = await listEfforts()
+    if (failed) return // listEfforts already said why.
     if (efforts.length <= 1) {
       state.notify(
         efforts.length === 1
@@ -1040,17 +1110,9 @@ export function createChannel(
     // effect; cycle from THERE, not from the top of the list.
     const currentId = state.reasoningEffort ?? defaultEffort
     const currentIndex = efforts.findIndex(effort => effort.id === currentId)
-    const next = efforts[(currentIndex + 1) % efforts.length]!
-    selection.current = {
-      provider: state.provider,
-      model: state.model,
-      reasoningEffort: ReasoningEffortId(next.id),
-    }
-    preferredEffort = next.id
-    state.reasoningEffort = next.id
-    writeEffortPref(next.id)
-    state.notify(t('effort-switched', { name: next.name }))
-    state.emit()
+    // The tier came out of the list we just resolved, so it needs no second
+    // lookup to validate.
+    applyEffort(efforts[(currentIndex + 1) % efforts.length]!)
   }
 
   const state: ChannelState = {
@@ -1689,6 +1751,8 @@ export function createChannel(
       return true
     },
     cycleEffort,
+    listEfforts,
+    setEffort,
     clear() {
       state.rows.length = 0
       nextRowId = 0

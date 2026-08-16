@@ -31,5 +31,14 @@ describe('filterCommands', () => {
   it('includes every local command in the shipped table', () => {
     expect(LOCAL_COMMANDS.some(c => c.name === 'exit')).toBe(true)
     expect(LOCAL_COMMANDS.some(c => c.name === 'preset')).toBe(true)
+    expect(LOCAL_COMMANDS.some(c => c.name === 'statusline')).toBe(true)
+    expect(LOCAL_COMMANDS.some(c => c.name === 'effort')).toBe(true)
+  })
+
+  it('dispatches the new commands with their arguments', () => {
+    expect(isLocalCommandName('/statusline')).toBe(true)
+    expect(isLocalCommandName('/effort')).toBe(true)
+    expect(parseCommandName('/effort high')).toEqual({ name: 'effort', rawInput: ' high' })
+    expect(parseCommandName('/statusline status')).toEqual({ name: 'statusline', rawInput: ' status' })
   })
 })

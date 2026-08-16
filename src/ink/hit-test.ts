@@ -45,21 +45,20 @@ export function hitTest(
 }
 
 /**
- * Hit-test the root at (col, row) and bubble a ClickEvent from the deepest
- * containing node up through parentNode. Only nodes with an onClick handler
- * fire. Stops when a handler calls stopImmediatePropagation(). Returns
- * true if at least one onClick handler fired.
+ * Bubble an already-built ClickEvent from the deepest node containing
+ * (col, row) up through parentNode. Only nodes with an onClick handler fire.
+ * Stops when a handler calls stopImmediatePropagation().
  * @param root - the tree root to hit-test.
  * @param col - the screen column of the click.
  * @param row - the screen row of the click.
- * @param cellIsBlank - whether the clicked cell is blank, reported on the event.
+ * @param event - the event to deliver.
  * @returns true when at least one onClick handler fired.
  */
-export function dispatchClick(
+function bubbleClick(
   root: DOMElement,
   col: number,
   row: number,
-  cellIsBlank = false,
+  event: ClickEvent,
 ): boolean {
   let target: DOMElement | undefined = hitTest(root, col, row) ?? undefined
   if (!target) return false
@@ -76,7 +75,6 @@ export function dispatchClick(
       focusTarget = focusTarget.parentNode
     }
   }
-  const event = new ClickEvent(col, row, cellIsBlank)
   let handled = false
   while (target) {
     const handler = target._eventHandlers?.onClick as
@@ -95,6 +93,53 @@ export function dispatchClick(
     target = target.parentNode
   }
   return handled
+}
+
+/**
+ * Hit-test the root at (col, row) and bubble a plain ClickEvent from the
+ * deepest containing node up through parentNode. Only nodes with an onClick
+ * handler fire. Stops when a handler calls stopImmediatePropagation(). Returns
+ * true if at least one onClick handler fired.
+ * @param root - the tree root to hit-test.
+ * @param col - the screen column of the click.
+ * @param row - the screen row of the click.
+ * @param cellIsBlank - whether the clicked cell is blank, reported on the event.
+ * @returns true when at least one onClick handler fired.
+ */
+export function dispatchClick(
+  root: DOMElement,
+  col: number,
+  row: number,
+  cellIsBlank = false,
+): boolean {
+  return bubbleClick(root, col, row, new ClickEvent(col, row, cellIsBlank, 1))
+}
+
+/**
+ * Deliver the second click of a double-click as a `clickCount === 2`
+ * ClickEvent through the same onClick chain.
+ *
+ * Unlike {@link dispatchClick} this reports consumption only when a handler
+ * called `stopImmediatePropagation()`. Merely *having* an onClick is not
+ * enough: nearly every transcript row has one for its single-click behavior,
+ * and treating those as consumers would kill double-click-to-select-word
+ * across the whole transcript. A handler that genuinely owns the gesture
+ * claims it explicitly; everything else falls through to text selection.
+ * @param root - the tree root to hit-test.
+ * @param col - the screen column of the click.
+ * @param row - the screen row of the click.
+ * @param cellIsBlank - whether the clicked cell is blank, reported on the event.
+ * @returns true when a handler claimed the double-click.
+ */
+export function dispatchDoubleClick(
+  root: DOMElement,
+  col: number,
+  row: number,
+  cellIsBlank = false,
+): boolean {
+  const event = new ClickEvent(col, row, cellIsBlank, 2)
+  bubbleClick(root, col, row, event)
+  return event.didStopImmediatePropagation()
 }
 
 /**

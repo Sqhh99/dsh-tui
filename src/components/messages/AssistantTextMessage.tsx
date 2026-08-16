@@ -1,4 +1,5 @@
 import React from 'react'
+import type { ClickEvent } from '../../ink/events/click-event.js'
 import { Box, NoSelect, Text } from '../../ui.js'
 import { BLACK_CIRCLE } from '../../cc/figures.js'
 import { Markdown } from '../Markdown.js'
@@ -11,7 +12,7 @@ type Props = {
   isSelected?: boolean
   /** Row expanded on its own (persistent hover-grey background, CC). */
   isExpanded?: boolean
-  onClick?(): void
+  onClick?(event: ClickEvent): void
 }
 
 /**

@@ -15,9 +15,10 @@
 | `Up/Down` | 菜单选择；普通输入中浏览历史或在多行文本间移动 |
 | `Ctrl+V` | 从系统剪贴板插入文本；Windows Explorer 复制的文件/图片会插入路径 |
 | `Esc` | 按当前模式关闭菜单/选区/弹窗；有输入时清空；模型工作时中断；空输入连续两次打开 rewind |
-| `Ctrl+C` | 工作时中断；空闲且有输入时清空；空输入时连续两次退出 |
+| `Ctrl+C` | 工作时中断；空闲且有输入时清空；空输入时连续两次重启（自动恢复当前会话） |
 | `Ctrl+D` | 空闲时连续两次退出 |
 | `Ctrl+O` | 切换 transcript/verbose 详情，展开思考与完整工具参数/输出 |
+| `Ctrl+G` | 折叠全部工具链为摘要行，再按一次全部展开 |
 | `Ctrl+T` | 展开或折叠启动时的“已加载上下文”面板 |
 | `Ctrl+R` | 打开输入历史搜索；重复按或 `Down` 移到下一项 |
 | `Ctrl+L` | 强制清理并重绘物理终端 |
@@ -97,19 +98,42 @@ Windows `dsh-tui.cmd --resume` 使用 `~/.dsh-tui/resume.txt` 中最后选择的
 
 ## Fullscreen 与鼠标
 
-`fullscreen: false` 是默认 inline 模式，终端模拟器拥有原生 scrollback 和选区。
-
-`fullscreen: true` 使用 alternate screen，并启用应用内鼠标处理：
+`fullscreen: true` 是默认值：使用 alternate screen，并启用应用内鼠标处理：
 
 | 操作 | 行为 |
 | --- | --- |
 | 滚轮 | 滚动会话消息列表 |
 | 拖拽 | 选择文本，松开后立即复制并清除选区 |
-| 双击/三击 | 选择单词/整行并复制 |
+| 双击步骤行 | 把该步骤调用的工具折叠成一行摘要 |
+| 单击摘要行 | 重新展开该工具链 |
+| 其他位置双击/三击 | 选择单词/整行并复制 |
 | `Esc` | 取消正在进行的拖拽，不复制 |
+
+设 `fullscreen: false` 回到 inline 模式：终端模拟器拥有原生 scrollback 和
+选区，应用内鼠标处理不生效。`Ctrl+G` 是折叠手势的键盘等价操作，两种模式下
+都可用。
 
 复制优先使用 OSC 52；本地终端可回退到 `wl-copy`、`xclip` 或 `xsel`，tmux 使用
 `load-buffer -w`。设置 `CC_TUI_DISABLE_MOUSE=1` 可临时关闭 fullscreen 鼠标。
+
+## 折叠工具链
+
+模型思考后开始解决问题时，这一步调用的工具会跟在步骤行后面逐个渲染。这些工具
+卡可以折叠成一行摘要，与 web 版 trajectory 视图一致：
+
+| 操作 | 行为 |
+| --- | --- |
+| 双击步骤行 | 折叠该步骤的工具调用为 `… 3 tool calls · Read, Bash` |
+| 单击摘要行 | 重新展开该工具链 |
+| 已折叠的步骤行上按 `Enter` | 在消息选择模式（`Shift+Up`）下展开该工具链 |
+| `Ctrl+G` | 折叠全部工具链；已全部折叠时再按一次全部展开 |
+
+一条工具链 = 一个已结束的 assistant 或 reasoning 行，加上紧随其后连续的工具
+调用；遇到其他类型的行即结束。默认全部展开，不会自动折叠，状态也不会跨重启
+保留。
+
+这与 `Ctrl+O` 相互独立：`Ctrl+O` 控制每张工具卡展示多少参数与输出，而不是这
+张卡是否存在。
 
 ## `ask_user_question` 问卷
 
@@ -135,7 +159,7 @@ transcript。
 | --- | --- |
 | 会话 | `/new`、`/resume`、`/clear`、`/compact`、`/export` |
 | 状态 | `/status`、`/cost`、`/config`、`/doctor`、`/init`、`/agents` |
-| 模型与显示 | `/model`、`/thinking`、`/tokens`、`/activity`、`/preset`、`/theme`、`/lang` |
+| 模型与显示 | `/model`、`/effort`、`/thinking`、`/tokens`、`/activity`、`/preset`、`/theme`、`/statusline`、`/lang` |
 | 账号与策略 | `/login`、`/logout`、`/permissions`、`/add-dir`、`/hooks`、`/mcp`、`/memory` |
 | 打包 Skills | `/audit`、`/bug`、`/practice`、`/review`、`/pr_comments`、`/release-notes`、`/vuln-check` |
 | 其他 | `/update`、`/vim`、`/terminal-setup`、`/connect`、`/help`、`/exit` |
@@ -148,6 +172,12 @@ transcript。
 - `/preset <id>` 与 `/preset status` 见配置文档。
 - `/theme <name>` 与 `/theme status` 见主题文档。
 - `/lang` 切换中英界面语言（见「界面语言」）。
+- `/effort` 打开当前路由的推理等级选择器；`/effort <id>` 直接设置，
+  `/effort status` 查看当前等级与适配器提供的全部档位。`Shift+Tab` 仍然
+  可以循环切换，两者都写入 `~/.dsh-tui/effort.json`。
+- `/statusline` 打开状态栏字段编辑器：`Up/Down` 移动，`Space` 开关，
+  `Enter` 保存，`Esc` 取消，改动会在下方状态栏实时预览。
+  `/statusline status` 查看当前状态，`/statusline reset` 恢复全部字段。
 - 启动后会后台检查 npm 新版本；发现更新时会提示。检测遵循 npm registry
   配置（`NPM_CONFIG_REGISTRY` 或 `~/.npmrc`），镜像源用户看到的就是安装源
   的最新版。`/update` 更新已安装的

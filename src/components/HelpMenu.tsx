@@ -33,7 +33,10 @@ export function HelpMenu({
           <Text dimColor>ctrl+r to search history</Text>
         </Box>
         <Box>
-          <Text dimColor>ctrl+c to interrupt</Text>
+          <Text dimColor>ctrl+g to fold tool chains</Text>
+        </Box>
+        <Box>
+          <Text dimColor>ctrl+c to interrupt/restart</Text>
         </Box>
         <Box>
           <Text dimColor>ctrl+d to exit</Text>

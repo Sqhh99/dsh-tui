@@ -31,5 +31,22 @@ shift
 goto :parse
 
 :run
+rem Ctrl+C's restart leaves with exit code 75 (RESTART_EXIT_CODE in
+rem src/update.ts). Relaunch here rather than letting the TUI respawn itself,
+rem so repeated restarts do not stack one live process each. DSH_TUI_LAUNCHER
+rem is what tells the TUI this loop is watching.
+set "DSH_TUI_LAUNCHER=1"
+:relaunch
 @dsh --profile dsh-tui %ARGS%
+if errorlevel 76 goto :done
+if not errorlevel 75 goto :done
+rem The TUI wrote the session id before leaving; resume the same conversation.
+if exist "%USERPROFILE%\.dsh-tui\resume.txt" (
+  set /p DSH_TUI_RESUME_SESSION=<"%USERPROFILE%\.dsh-tui\resume.txt"
+) else if exist "%USERPROFILE%\.dsh-cc\resume.txt" (
+  set /p DSH_TUI_RESUME_SESSION=<"%USERPROFILE%\.dsh-cc\resume.txt"
+)
+goto :relaunch
+
+:done
 endlocal

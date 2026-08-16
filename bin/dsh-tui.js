@@ -51,36 +51,68 @@ if (!existsSync(join(profileDir, 'node_modules', '@sqhh99', 'dsh-tui'))) {
   }
 }
 
+/** Load the last session id written by the TUI on exit, if there is one. */
+function readResumeTarget() {
+  const candidates = [
+    join(homedir(), '.dsh-tui', 'resume.txt'),
+    join(homedir(), '.dsh-cc', 'resume.txt'),
+  ]
+  for (const file of candidates) {
+    try {
+      return readFileSync(file, 'utf8').trim()
+    } catch {
+      // Try the next compatibility path.
+    }
+  }
+  return undefined
+}
+
 const args = []
 for (const a of process.argv.slice(2)) {
   if (a === '--resume') {
-    const candidates = [
-      join(homedir(), '.dsh-tui', 'resume.txt'),
-      join(homedir(), '.dsh-cc', 'resume.txt'),
-    ]
-    for (const file of candidates) {
-      try {
-        process.env.DSH_TUI_RESUME_SESSION = readFileSync(file, 'utf8').trim()
-        break
-      } catch {
-        // Try the next compatibility path.
-      }
-    }
+    const target = readResumeTarget()
+    if (target) process.env.DSH_TUI_RESUME_SESSION = target
   } else {
     args.push(a)
   }
 }
 
-const child = spawn('dsh', ['--profile', PROFILE, ...args], {
-  stdio: 'inherit',
-  env: process.env,
-  ...shellOpt,
-})
-child.on('error', (err) => {
-  console.error(`[dsh-tui] Failed to start: ${err.message}`)
-  process.exit(1)
-})
-child.on('exit', (code, signal) => {
-  if (signal) process.kill(process.pid, signal)
-  else process.exit(code ?? 0)
-})
+// Ctrl+C's restart: the TUI leaves with this code and we bring it straight
+// back on the same session. Relaunching HERE keeps things flat — having the
+// TUI respawn itself would leave one live parent process per restart.
+// Must match RESTART_EXIT_CODE in src/update.ts (and dsh-tui.cmd); this file
+// ships as plain JS with no build step, so it cannot import it.
+const RESTART_EXIT_CODE = 75
+
+// Tell the TUI a relaunch loop is watching, so it takes the exit-code path
+// instead of respawning itself.
+process.env.DSH_TUI_LAUNCHER = '1'
+
+function launch() {
+  const child = spawn('dsh', ['--profile', PROFILE, ...args], {
+    stdio: 'inherit',
+    env: process.env,
+    ...shellOpt,
+  })
+  child.on('error', (err) => {
+    console.error(`[dsh-tui] Failed to start: ${err.message}`)
+    process.exit(1)
+  })
+  child.on('exit', (code, signal) => {
+    if (signal) {
+      process.kill(process.pid, signal)
+      return
+    }
+    if (code === RESTART_EXIT_CODE) {
+      // The TUI wrote the session id to resume.txt before leaving; pick it
+      // up so the replacement continues the same conversation.
+      const target = readResumeTarget()
+      if (target) process.env.DSH_TUI_RESUME_SESSION = target
+      launch()
+      return
+    }
+    process.exit(code ?? 0)
+  })
+}
+
+launch()

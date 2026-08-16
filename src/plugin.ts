@@ -18,7 +18,7 @@ import type { ModelRoute } from './modelRoute.js'
 import { readPresetPref } from './presetPrefs.js'
 import { composePreset, resolvePersistedPreset, runningPresetOf } from './presets.js'
 import { writeResumeTarget } from './sessionHistory.js'
-import { checkForTuiUpdate, installedTuiVersion, isVersionNewer, resolveDshProfileName, resolveTuiUpdateTarget, updateTuiAndRestart } from './update.js'
+import { RESTART_EXIT_CODE, checkForTuiUpdate, hasRelaunchingLauncher, installedTuiVersion, isVersionNewer, resolveDshProfileName, resolveTuiUpdateTarget, restartTui, updateTuiAndRestart } from './update.js'
 import { isLang, resolveStartupLang, setLang, t } from './i18n.js'
 import { Chat } from './screens/Chat.js'
 import { render, ThemeProvider, AlternateScreen } from './ui.js'
@@ -183,6 +183,8 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   let instance: Awaited<ReturnType<typeof render>> | undefined
   let exited = false
   let updateRequested = false
+  /** Ctrl+C restart: leave and come straight back into the same session. */
+  let restartRequested = false
   // The profile this process was booted with (`dsh --profile <name>`); dsh
   // exposes it nowhere else, and /update must update the installation the
   // user is actually running, not a hard-coded one.
@@ -258,6 +260,37 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
         })
         return
       }
+      if (restartRequested) {
+        const sessionId = channel.agentId
+        if (hasRelaunchingLauncher()) {
+          // bin/dsh-tui.js is watching: leave with the agreed code and let it
+          // relaunch in place. This keeps repeated restarts flat — respawning
+          // ourselves would nest one live process per Ctrl+C. The launcher
+          // reads the session id back out of the resume marker written above.
+          disposeRootAndExit(ctx, RESTART_EXIT_CODE)
+          return
+        }
+        // Launched directly (bare `dsh --profile …`, a source checkout): no
+        // loop is watching, so respawn ourselves and settle with the
+        // replacement's code, the same handoff /update uses.
+        if (process.stdout.isTTY) {
+          process.stdout.write('\nRestarting dsh-tui…\n')
+        }
+        disposeRootAndThen(ctx, () => {
+          void restartTui(sessionId).then(
+            restartCode => { process.exit(restartCode) },
+            restartError => {
+              const message = restartError instanceof Error ? restartError.message : String(restartError)
+              process.stderr.write(
+                `\ndsh-tui restart failed: ${message}. Your session is preserved — resume with:\n` +
+                  `${resumeCommand(profile, sessionId)}\n\n`,
+              )
+              process.exit(1)
+            },
+          )
+        })
+        return
+      }
       if (process.stdout.isTTY) {
         process.stdout.write(`\nResume with (set the env var, then boot the profile):\n${resumeCommand(profile, channel.agentId)}\n\n`)
       }
@@ -270,6 +303,14 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     channel,
     questionStore,
     onExit: () => handleExit(),
+    // Ctrl+C's confirmed double-press: same teardown as a plain exit (the
+    // resume marker is written either way), then the process comes back up
+    // on the same session instead of dropping to a shell.
+    onRestart: () => {
+      if (exited || updateRequested || restartRequested) return
+      restartRequested = true
+      instance?.unmount()
+    },
     // Only a `dsh --profile <name>` launch has a profile installation for
     // `/update` to act on; source checkouts and `--config` overlays get the
     // unavailable notice instead.
