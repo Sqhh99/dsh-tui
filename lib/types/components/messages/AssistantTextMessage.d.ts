@@ -1,4 +1,5 @@
 import React from 'react';
+import type { ClickEvent } from '../../ink/events/click-event.js';
 type Props = {
     text: string;
     /** Adds the top margin between messages (CC: addMargin). */
@@ -7,7 +8,7 @@ type Props = {
     isSelected?: boolean;
     /** Row expanded on its own (persistent hover-grey background, CC). */
     isExpanded?: boolean;
-    onClick?(): void;
+    onClick?(event: ClickEvent): void;
 };
 /**
  * Assistant text message:  bullet + markdown body (ported from the

@@ -273,6 +273,13 @@ export default class Ink {
      * nodeCache rects map 1:1 to terminal cells (no scrollback offset).
      */
     dispatchClick(col: number, row: number): boolean;
+    /**
+     * Offer the second click of a double-click to the DOM. Reports true only
+     * when a handler claimed it with stopImmediatePropagation() — see
+     * dispatchDoubleClick in hit-test.ts for why "has an onClick" is not
+     * enough.
+     */
+    dispatchDoubleClick(col: number, row: number): boolean;
     dispatchHover(col: number, row: number): void;
     dispatchKeyboardEvent(parsedKey: ParsedKey): void;
     /**
@@ -302,6 +309,11 @@ export default class Ink {
      * PRESS (not release) so the highlight appears immediately and drag can
      * extend the selection word-by-word / line-by-line. Falls back to
      * char-mode startSelection if the click lands on a noSelect cell.
+     *
+     * A double-click is offered to the DOM first: a handler that consumes it
+     * (transcript tool-chain collapse) owns the gesture, and we return without
+     * touching the selection so the row does not also highlight a word.
+     * Triple-click always belongs to line selection.
      */
     handleMultiClick(col: number, row: number, count: 2 | 3): void;
     /**

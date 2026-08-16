@@ -383,6 +383,13 @@ export interface Channel {
      *  adapter's own level list (dsh parity: deepseek Off→High→Max), taking
      *  effect on the next request and persisting across restarts. */
     cycleEffort(): Promise<void>;
+    /** The live route's reasoning tiers, for the `/effort` picker. `failed`
+     *  marks a lookup that already notified its own reason, so callers stay
+     *  silent instead of adding a second message. */
+    listEfforts(): Promise<EffortTiers>;
+    /** Pin one adapter-declared reasoning tier (`/effort <id>` and the picker),
+     *  validated against the live route; persists like cycleEffort. */
+    setEffort(id: string): Promise<void>;
     /** The preset the CURRENT session runs under (issue #8), resolved from its
      *  log at create/resume time; undefined when no roster is mounted. */
     readonly agentPreset: string | undefined;
@@ -449,6 +456,21 @@ export interface PresetOption {
     /** Present when the roster marked this preset unloadable (shown verbatim). */
     broken?: string;
     isDefault: boolean;
+}
+/** The live route's reasoning tiers (see {@link Channel.listEfforts}). */
+export interface EffortTiers {
+    /** Adapter-declared tiers, in the adapter's own display order. */
+    efforts: ReadonlyArray<{
+        id: string;
+        name: string;
+        description?: string;
+    }>;
+    /** The tier that applies when nothing is pinned, when the adapter says. */
+    defaultEffort?: string;
+    /** True when the lookup could not run (no llm service, or resolve threw).
+     *  The failure was already notified — callers must not add a second
+     *  message, and must not read the empty list as "no tiers". */
+    failed: boolean;
 }
 /** @internal */
 /** One user message submitted while the model was working, not yet claimed
@@ -552,6 +574,10 @@ export interface ChannelState {
     switchModel(provider: string, model: string): Promise<boolean>;
     /** Cycle reasoning effort (see the public Channel type). */
     cycleEffort(): Promise<void>;
+    /** The route's reasoning tiers (see the public Channel type). */
+    listEfforts(): Promise<EffortTiers>;
+    /** Pin one reasoning tier (see the public Channel type). */
+    setEffort(id: string): Promise<void>;
     /** The preset the current session runs under (see the public Channel type). */
     agentPreset: string | undefined;
     /** The roster's presets for the `/preset` picker (see the public Channel type). */

@@ -45,14 +45,19 @@ const DEFAULT_ROW_HEIGHT = 2
  *  first layout measurement. */
 const DEFAULT_HEADER_LINES = 14
 
+/** Stable empty set for the optional chain-collapse props, so a caller that
+ *  omits them does not hand a fresh identity down on every render. */
+const NO_COLLAPSED_CHAINS: ReadonlySet<number> = new Set()
+const noop = (): void => {}
+
 export function MessageList({
   rows,
   expanded,
   expandedRows,
-  collapsedChains,
+  collapsedChains = NO_COLLAPSED_CHAINS,
   selectedId,
   onToggleRow,
-  onToggleChain,
+  onToggleChain = noop,
   model,
   showAll,
   onToggleAll,
@@ -67,12 +72,15 @@ export function MessageList({
   rows: readonly ChatRow[]
   expanded: boolean
   expandedRows: ReadonlySet<number>
-  /** Anchor row ids whose tool chain is folded into a summary row. */
-  collapsedChains: ReadonlySet<number>
+  /** Anchor row ids whose tool chain is folded into a summary row. Optional:
+   *  omitting it (as the standalone verify/repro scripts do) renders every
+   *  chain expanded, which is also the startup state. */
+  collapsedChains?: ReadonlySet<number>
   selectedId: number | null
   onToggleRow: (rowId: number, next?: boolean) => void
-  /** Fold/unfold the tool chain anchored at `anchorId`. */
-  onToggleChain: (anchorId: number) => void
+  /** Fold/unfold the tool chain anchored at `anchorId`. Optional alongside
+   *  `collapsedChains` — without state to drive, the gesture is inert. */
+  onToggleChain?: (anchorId: number) => void
   model: string
   showAll: boolean
   onToggleAll: () => void

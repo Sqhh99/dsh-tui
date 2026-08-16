@@ -635,6 +635,138 @@ declare const dict: {
         readonly zh: "推理强度 → {{name}}";
         readonly en: "Reasoning effort → {{name}}";
     };
+    readonly 'effort-unknown': {
+        readonly zh: "未知推理等级「{{id}}」· 可选：{{ids}}";
+        readonly en: "Unknown reasoning effort \"{{id}}\" · available: {{ids}}";
+    };
+    readonly 'effort-pref-write-failed': {
+        readonly zh: "无法写入 ~/.dsh-tui/effort.json，推理等级不会保存到重启后";
+        readonly en: "Cannot write ~/.dsh-tui/effort.json, the effort choice will not survive a restart";
+    };
+    readonly 'effort-title': {
+        readonly zh: "推理等级";
+        readonly en: "Reasoning effort";
+    };
+    readonly 'effort-default-suffix': {
+        readonly zh: "（默认）";
+        readonly en: "(default)";
+    };
+    readonly 'effort-current': {
+        readonly zh: "当前推理等级：{{name}}";
+        readonly en: "Current reasoning effort: {{name}}";
+    };
+    readonly 'effort-none': {
+        readonly zh: "当前推理等级：适配器默认";
+        readonly en: "Current reasoning effort: adapter default";
+    };
+    readonly 'effort-available': {
+        readonly zh: "可选等级：{{ids}}";
+        readonly en: "Available levels: {{ids}}";
+    };
+    readonly 'effort-switch-hint': {
+        readonly zh: "/effort <id> 直接设置 · Shift+Tab 循环切换";
+        readonly en: "/effort <id> to set directly · Shift+Tab to cycle";
+    };
+    readonly 'effort-loading': {
+        readonly zh: "读取推理等级";
+        readonly en: "Loading reasoning efforts";
+    };
+    readonly 'effort-loading-subtitle': {
+        readonly zh: "正在查询当前路由的适配器…";
+        readonly en: "Querying the route's adapter…";
+    };
+    readonly 'exit-arm': {
+        readonly zh: "再按一次 Ctrl+D 退出";
+        readonly en: "Press Ctrl+D again to exit";
+    };
+    readonly 'exit-arm-restart': {
+        readonly zh: "再按一次 Ctrl+C 重启（会话保留）";
+        readonly en: "Press Ctrl+C again to restart (session preserved)";
+    };
+    readonly 'chain-none': {
+        readonly zh: "当前没有可折叠的工具链";
+        readonly en: "No collapsible tool chains yet";
+    };
+    readonly 'chain-collapsed-all': {
+        readonly zh: "已折叠 {{n}} 条工具链 · Ctrl+G 展开";
+        readonly en: "Collapsed {{n}} tool chains · Ctrl+G to expand";
+    };
+    readonly 'chain-expanded-all': {
+        readonly zh: "已展开 {{n}} 条工具链 · Ctrl+G 折叠";
+        readonly en: "Expanded {{n}} tool chains · Ctrl+G to collapse";
+    };
+    readonly 'statusline-title': {
+        readonly zh: "状态栏字段";
+        readonly en: "Status line";
+    };
+    readonly 'statusline-hint-toggle': {
+        readonly zh: "开关";
+        readonly en: "toggle";
+    };
+    readonly 'statusline-hint-save': {
+        readonly zh: "保存";
+        readonly en: "save";
+    };
+    readonly 'statusline-hint-cancel': {
+        readonly zh: "取消";
+        readonly en: "cancel";
+    };
+    readonly 'statusline-segment-contextBar': {
+        readonly zh: "上下文进度条";
+        readonly en: "context bar";
+    };
+    readonly 'statusline-segment-model': {
+        readonly zh: "模型名";
+        readonly en: "model";
+    };
+    readonly 'statusline-segment-tps': {
+        readonly zh: "速度表 (tps)";
+        readonly en: "tps meter";
+    };
+    readonly 'statusline-segment-effort': {
+        readonly zh: "推理等级";
+        readonly en: "reasoning effort";
+    };
+    readonly 'statusline-segment-cache': {
+        readonly zh: "缓存命中率";
+        readonly en: "cache hit rate";
+    };
+    readonly 'statusline-segment-tokens': {
+        readonly zh: "Token 消耗";
+        readonly en: "tokens in→out";
+    };
+    readonly 'statusline-segment-git': {
+        readonly zh: "Git 分支";
+        readonly en: "git branch";
+    };
+    readonly 'statusline-segment-cwd': {
+        readonly zh: "当前目录";
+        readonly en: "working directory";
+    };
+    readonly 'statusline-segment-title': {
+        readonly zh: "会话标题";
+        readonly en: "session title";
+    };
+    readonly 'statusline-segment-hint': {
+        readonly zh: "快捷键提示行";
+        readonly en: "shortcut hint line";
+    };
+    readonly 'statusline-saved': {
+        readonly zh: "状态栏已保存（{{n}}/{{total}} 项显示）";
+        readonly en: "Status line saved ({{n}}/{{total}} segments shown)";
+    };
+    readonly 'statusline-write-failed': {
+        readonly zh: "无法写入 ~/.dsh-tui/statusline.json，重启后不会保留";
+        readonly en: "Cannot write ~/.dsh-tui/statusline.json, the layout will not survive a restart";
+    };
+    readonly 'statusline-reset': {
+        readonly zh: "状态栏已恢复默认（全部显示）";
+        readonly en: "Status line reset to defaults (all segments shown)";
+    };
+    readonly 'statusline-status': {
+        readonly zh: "状态栏字段";
+        readonly en: "Status line segments";
+    };
     readonly 'input-sent-after-turn': {
         readonly zh: "已发送，当前回合结束后处理";
         readonly en: "Sent, processed after the current turn";

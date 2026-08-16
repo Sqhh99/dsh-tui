@@ -1,3 +1,27 @@
+/**
+ * Exit code the TUI leaves with when the user asked for a restart (Ctrl+C).
+ * The launchers watch for it and relaunch in place, so repeated restarts stay
+ * flat instead of nesting one child process per restart. Chosen from the
+ * 64-78 sysexits range, well clear of ordinary failures.
+ *
+ * This value is duplicated, by necessity, in the two launchers that cannot
+ * import from here: `bin/dsh-tui.js` and `dsh-tui.cmd`. Change all three
+ * together.
+ */
+export declare const RESTART_EXIT_CODE = 75;
+/**
+ * Env marker the launcher sets so the TUI knows a relaunch loop is watching
+ * its exit code. Without it (a bare `dsh --profile …`, a source checkout)
+ * the TUI has to respawn itself instead.
+ */
+export declare const LAUNCHER_ENV = "DSH_TUI_LAUNCHER";
+/**
+ * Whether this process was started by `bin/dsh-tui.js`, which relaunches on
+ * {@link RESTART_EXIT_CODE}.
+ * @param env - Environment to inspect (injectable for tests).
+ * @returns True when the relaunch-capable launcher is watching.
+ */
+export declare function hasRelaunchingLauncher(env?: NodeJS.ProcessEnv): boolean;
 export interface TuiUpdateInfo {
     current: string;
     latest: string;
@@ -73,4 +97,19 @@ export declare function shellQuote(args: readonly string[]): string[];
  * @returns Exit codes for the update run and the replacement process.
  */
 export declare function updateTuiAndRestart(sessionId: string, profile: string): Promise<TuiUpdateResult>;
+/**
+ * Re-run this launcher as a child, resuming `sessionId`, and settle with the
+ * replacement's exit code. The TUI must already be unmounted so the child
+ * owns the terminal.
+ *
+ * This nests one process per restart, which is fine for a once-per-release
+ * `/update` but not for the Ctrl+C restart — that path prefers the launcher's
+ * flat relaunch loop (see {@link RESTART_EXIT_CODE}) and only falls back here
+ * when no launcher is watching.
+ *
+ * @param sessionId - Session to resume in the replacement process.
+ * @param extraEnv - Extra environment for the replacement (update markers).
+ * @returns The replacement process's exit code.
+ */
+export declare function restartTui(sessionId: string, extraEnv?: Readonly<Record<string, string>>): Promise<number>;
 //# sourceMappingURL=update.d.ts.map

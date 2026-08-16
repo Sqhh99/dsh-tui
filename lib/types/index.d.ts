@@ -47,7 +47,11 @@ export interface Config {
      *  `ctx used/window` readout) in the status footer; off hides that row
      *  while the status/mode lines stay (issue #29). */
     contextBar?: boolean;
-    /** Run in the terminal's alternate screen (Claude Code fullscreen layout). */
+    /** Run in the terminal's alternate screen (Claude Code fullscreen layout).
+     *  On by default: the alt screen is what enables in-app mouse handling —
+     *  wheel scroll, select-to-copy, click affordances, and the double-click
+     *  that folds a tool chain. Set `false` for inline mode, where the terminal
+     *  emulator keeps native scrollback and selection instead. */
     fullscreen?: boolean;
     /** UI language: `en` / `zh`. When absent, the `CC_TUI_LANG` env var wins,
      *  then the `/lang` choice persisted in `~/.dsh-tui/lang.json`, then `zh`. */

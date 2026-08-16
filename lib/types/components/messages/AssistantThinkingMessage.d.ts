@@ -1,4 +1,5 @@
 import React from 'react';
+import type { ClickEvent } from '../../ink/events/click-event.js';
 type Props = {
     thinking: string;
     /** Adds the top margin between messages (CC: addMargin). */
@@ -9,7 +10,7 @@ type Props = {
     durationMs?: number;
     /** Message-selection mode highlight. */
     isSelected?: boolean;
-    onClick?(): void;
+    onClick?(event: ClickEvent): void;
 };
 /**
  * Thinking block: folded `∴ Thinking (ctrl+o to expand)`, expanded shows the

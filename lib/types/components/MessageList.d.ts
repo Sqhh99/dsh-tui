@@ -2,12 +2,19 @@ import React from 'react';
 import { type ScrollBoxHandle } from '../ui.js';
 import type { ChatRow } from '../channel.js';
 import type { DOMElement } from '../ink/dom.js';
-export declare function MessageList({ rows, expanded, expandedRows, selectedId, onToggleRow, model, showAll, onToggleAll, onLoadOlder, thinkingVisible, registerRowRef, scrollHandle, forceMountRowId, newSinceRowId, onUnseenCount, }: {
+export declare function MessageList({ rows, expanded, expandedRows, collapsedChains, selectedId, onToggleRow, onToggleChain, model, showAll, onToggleAll, onLoadOlder, thinkingVisible, registerRowRef, scrollHandle, forceMountRowId, newSinceRowId, onUnseenCount, }: {
     rows: readonly ChatRow[];
     expanded: boolean;
     expandedRows: ReadonlySet<number>;
+    /** Anchor row ids whose tool chain is folded into a summary row. Optional:
+     *  omitting it (as the standalone verify/repro scripts do) renders every
+     *  chain expanded, which is also the startup state. */
+    collapsedChains?: ReadonlySet<number>;
     selectedId: number | null;
-    onToggleRow: (rowId: number) => void;
+    onToggleRow: (rowId: number, next?: boolean) => void;
+    /** Fold/unfold the tool chain anchored at `anchorId`. Optional alongside
+     *  `collapsedChains` — without state to drive, the gesture is inert. */
+    onToggleChain?: (anchorId: number) => void;
     model: string;
     showAll: boolean;
     onToggleAll: () => void;
