@@ -1,8 +1,9 @@
 /**
- * Copy-on-select: when a drag finishes (or a double/triple click, or a
- * shift+arrow extension, lands a selection), copy the selected text to the
- * clipboard — OSC 52 plus the native-utility fallback — then clear the
- * highlight so the copy reads as a completed action.
+ * Copy-on-select: when a *drag* (or shift+arrow extension) settles a
+ * selection, copy the selected text to the clipboard — OSC 52 plus the
+ * native-utility fallback — then clear the highlight so the copy reads as
+ * a completed action. A bare double/triple-click is not a copy: those
+ * gestures belong to card expand/collapse.
  *
  * Implemented as a subscription rather than a mouse-release hook so every
  * path that settles a selection (release, lost-release recovery, focus-out

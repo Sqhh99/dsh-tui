@@ -111,7 +111,7 @@ function searchableText(row: ChatRow): string {
  * Ctrl+O toggles expanded detail globally; Shift+↑ enters message-selection
  * mode (↑/↓ move, Enter expands the selected row, Esc exits); Ctrl+C
  * interrupts the running turn, or (when idle) asks for a second Ctrl+C to
- * exit; Enter while scrolled up jumps back to the bottom.
+ * leave the process; Enter while scrolled up jumps back to the bottom.
  */
 export function Chat({
   channel,
@@ -123,7 +123,7 @@ export function Chat({
   channel: Channel
   questionStore: QuestionStore
   onExit: () => void
-  /** Leave and come straight back up on the same session (Ctrl+C). Falls
+  /** Leave and come straight back up on the same session (`/restart`). Falls
    *  back to a plain exit when the host cannot relaunch. */
   onRestart?: () => void
   /** Update the installed package and restart the current TUI process. */
@@ -160,8 +160,8 @@ export function Chat({
     () => new Set(),
   )
   /** Anchor row ids whose tool chain is folded (web client's trajectory
-   *  collapse). Everything starts expanded and nothing ever auto-collapses,
-   *  matching upstream; the state is view-local and not persisted. */
+   *  collapse, Ctrl+G). Per-tool cards themselves default to header-only
+   *  except the running call; that policy lives in `isToolBodyOpen`. */
   const [collapsedChains, setCollapsedChains] = React.useState<ReadonlySet<number>>(
     () => new Set(),
   )
@@ -175,6 +175,7 @@ export function Chat({
     setCollapsedChains(new Set())
     setSelectedId(null)
     setSelectionActive(false)
+    lastFocusedToolRef.current = null
   }, [channel.agentId])
   const [modelPickerOpen, setModelPickerOpen] = React.useState(false)
   const [models, setModels] = React.useState<readonly LlmModelInfo[]>([])
@@ -266,30 +267,25 @@ export function Chat({
   }, [isSticky, channel.rows])
   const showPill = !isSticky && unseenCount > 0
 
-  // Idle Ctrl+C: first press arms an exit, second press exits (CC's
-  // double-press semantics, simplified). Under Windows ConPTY the key
-  // arrives as stdin data (key.ctrl && input === 'c') — the useInput
-  // branch below is the only path; SIGINT is not emitted.
+  // Idle Ctrl+C / Ctrl+D: first press arms an exit, second press leaves
+  // for the shell. Under Windows ConPTY the key arrives as stdin data
+  // (key.ctrl && input === 'c') — the useInput branch below is the only
+  // path; SIGINT is not emitted. Restart is `/restart`, not this chord.
   const exitPendingRef = React.useRef(false)
   const exitTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   // Live view into the prompt's text for the Ctrl+C rule (clears text when
   // non-empty; the double-press exit only arms on an empty input).
   const promptControllerRef = React.useRef<PromptController | null>(null)
-  /**
-   * The armed double-press. `restart` picks what the confirmed second press
-   * does: Ctrl+C comes back up on the same session, Ctrl+D still leaves for
-   * the shell — so there is always a way out that does not relaunch.
-   */
-  const requestExit = (restart = false) => {
-    const leave = restart && onRestart !== undefined ? onRestart : onExit
+  const lastFocusedToolRef = React.useRef<number | null>(null)
+  const requestExit = () => {
     if (exitPendingRef.current) {
-      leave()
+      onExit()
     } else {
       exitPendingRef.current = true
-      channel.notify(restart && onRestart !== undefined ? t('exit-arm-restart') : t('exit-arm'))
+      channel.notify(t('exit-arm'))
       exitTimerRef.current = setTimeout(() => {
         exitPendingRef.current = false
-      }, 3000)
+      }, 1000)
     }
   }
   React.useEffect(() => {
@@ -541,6 +537,7 @@ export function Chat({
         setCollapsedChains(new Set())
         setSelectedId(null)
         setSelectionActive(false)
+        lastFocusedToolRef.current = null
         return true
       case 'compact':
         channel.compact()
@@ -662,6 +659,14 @@ export function Chat({
         return true
       case 'exit':
         onExit()
+        return true
+      case 'restart':
+        setHelpOpen(false)
+        if (onRestart === undefined) {
+          onExit()
+        } else {
+          onRestart()
+        }
         return true
       case 'status': {
         const usage = channel.lastUsage
@@ -921,6 +926,21 @@ export function Chat({
       handle?.scrollToElement(el)
       setForceMountRowId(null)
     }
+  })
+
+  // Follow the host's current tool so a long transcript does not leave the
+  // running card off-screen. Seek only when the running call changes.
+  const runningToolId = (() => {
+    for (let index = channel.rows.length - 1; index >= 0; index--) {
+      const row = channel.rows[index]!
+      if (row.kind === 'tool' && row.tool?.status === 'running') return row.id
+    }
+    return null
+  })()
+  React.useEffect(() => {
+    if (runningToolId === null || runningToolId === lastFocusedToolRef.current) return
+    lastFocusedToolRef.current = runningToolId
+    seekRow(runningToolId)
   })
 
   // `/` transcript search: rows whose searchable text contains the query.
@@ -1390,13 +1410,10 @@ export function Chat({
         event.stopImmediatePropagation()
       }
     } else if (key.ctrl && (input === 'c' || input === 'd')) {
-      // CC's app:exit ladder — ctrl+c interrupts a running turn; idle ctrl+c
-      // CLEARS a non-empty prompt (single press) and only arms the
-      // double-press when the input is empty; ctrl+d keeps the time-based
-      // double-press regardless.
-      //
-      // The confirmed press differs by key: ctrl+c RESTARTS (the process
-      // comes back up on this same session), ctrl+d exits to the shell.
+      // ctrl+c interrupts a running turn; idle ctrl+c CLEARS a non-empty
+      // prompt (single press) and only arms the double-press when the input
+      // is empty; ctrl+d keeps the time-based double-press regardless.
+      // Confirmed idle press leaves the process (restart is `/restart`).
       if (channel.working) {
         channel.cancel()
       } else if (input === 'c' && promptControllerRef.current?.hasText()) {
@@ -1405,7 +1422,7 @@ export function Chat({
         exitPendingRef.current = false
         if (exitTimerRef.current) clearTimeout(exitTimerRef.current)
       } else {
-        requestExit(input === 'c')
+        requestExit()
       }
     } else if (key.ctrl && input === 'l') {
       // CC's app:redraw — clear the physical terminal and repaint.

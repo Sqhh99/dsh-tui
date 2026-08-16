@@ -676,8 +676,8 @@ declare const dict: {
         readonly en: "Querying the route's adapter…";
     };
     readonly 'exit-arm': {
-        readonly zh: "再按一次 Ctrl+D 退出";
-        readonly en: "Press Ctrl+D again to exit";
+        readonly zh: "再按一次退出";
+        readonly en: "Press again to exit";
     };
     readonly 'exit-arm-restart': {
         readonly zh: "再按一次 Ctrl+C 重启（会话保留）";
@@ -712,8 +712,8 @@ declare const dict: {
         readonly en: "cancel";
     };
     readonly 'statusline-segment-contextBar': {
-        readonly zh: "上下文进度条";
-        readonly en: "context bar";
+        readonly zh: "上下文用量";
+        readonly en: "context usage";
     };
     readonly 'statusline-segment-model': {
         readonly zh: "模型名";
@@ -760,8 +760,8 @@ declare const dict: {
         readonly en: "Cannot write ~/.dsh-tui/statusline.json, the layout will not survive a restart";
     };
     readonly 'statusline-reset': {
-        readonly zh: "状态栏已恢复默认（全部显示）";
-        readonly en: "Status line reset to defaults (all segments shown)";
+        readonly zh: "状态栏已恢复默认";
+        readonly en: "Status line reset to defaults";
     };
     readonly 'statusline-status': {
         readonly zh: "状态栏字段";

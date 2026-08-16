@@ -11,6 +11,7 @@ import {
   resolveStatusLinePrefs,
   writeStatusLinePref,
 } from '../src/statusLinePrefs.ts'
+import { formatContextUsage } from '../src/screens/StatusMetrics.ts'
 
 function tempDir(label: string): string {
   const dir = join(tmpdir(), `dsh-tui-statusline-${label}-${Date.now()}-${Math.random().toString(36).slice(2)}`)
@@ -19,9 +20,11 @@ function tempDir(label: string): string {
 }
 
 describe('status line defaults', () => {
-  it('ships every segment on, so the footer is unchanged without a pref', () => {
+  it('ships every known segment, with the session title off by default', () => {
     expect(Object.keys(DEFAULT_STATUS_LINE).sort()).toEqual([...STATUS_SEGMENTS].sort())
-    expect(Object.values(DEFAULT_STATUS_LINE).every(Boolean)).toBe(true)
+    expect(DEFAULT_STATUS_LINE.title).toBe(false)
+    expect(DEFAULT_STATUS_LINE.model).toBe(true)
+    expect(DEFAULT_STATUS_LINE.contextBar).toBe(true)
   })
 
   it('recognizes only known segment names', () => {
@@ -72,5 +75,19 @@ describe('read/write round-trip', () => {
 
   it('reads undefined from a directory with no pref file', () => {
     expect(readStatusLinePref(tempDir('empty'))).toBeUndefined()
+  })
+})
+
+describe('formatContextUsage', () => {
+  it('renders a compact ctx read, not a full-width bar', () => {
+    expect(formatContextUsage(23_000, 1_000_000)).toBe('ctx 23k/1.0M 2.3%')
+  })
+
+  it('rounds larger percents to a whole number', () => {
+    expect(formatContextUsage(500_000, 1_000_000)).toBe('ctx 500k/1.0M 50%')
+  })
+
+  it('returns empty when the window is missing', () => {
+    expect(formatContextUsage(100, 0)).toBe('')
   })
 })

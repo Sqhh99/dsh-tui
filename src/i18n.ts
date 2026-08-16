@@ -211,7 +211,7 @@ const dict = {
   'effort-loading-subtitle': { zh: '正在查询当前路由的适配器…', en: 'Querying the route\'s adapter…' },
 
   // ── 工具链折叠 (MessageList / Chat) ──────────────────────────────────
-  'exit-arm': { zh: '再按一次 Ctrl+D 退出', en: 'Press Ctrl+D again to exit' },
+  'exit-arm': { zh: '再按一次退出', en: 'Press again to exit' },
   'exit-arm-restart': { zh: '再按一次 Ctrl+C 重启（会话保留）', en: 'Press Ctrl+C again to restart (session preserved)' },
 
   'chain-none': { zh: '当前没有可折叠的工具链', en: 'No collapsible tool chains yet' },
@@ -223,7 +223,7 @@ const dict = {
   'statusline-hint-toggle': { zh: '开关', en: 'toggle' },
   'statusline-hint-save': { zh: '保存', en: 'save' },
   'statusline-hint-cancel': { zh: '取消', en: 'cancel' },
-  'statusline-segment-contextBar': { zh: '上下文进度条', en: 'context bar' },
+  'statusline-segment-contextBar': { zh: '上下文用量', en: 'context usage' },
   'statusline-segment-model': { zh: '模型名', en: 'model' },
   'statusline-segment-tps': { zh: '速度表 (tps)', en: 'tps meter' },
   'statusline-segment-effort': { zh: '推理等级', en: 'reasoning effort' },
@@ -235,7 +235,7 @@ const dict = {
   'statusline-segment-hint': { zh: '快捷键提示行', en: 'shortcut hint line' },
   'statusline-saved': { zh: '状态栏已保存（{{n}}/{{total}} 项显示）', en: 'Status line saved ({{n}}/{{total}} segments shown)' },
   'statusline-write-failed': { zh: '无法写入 ~/.dsh-tui/statusline.json，重启后不会保留', en: 'Cannot write ~/.dsh-tui/statusline.json, the layout will not survive a restart' },
-  'statusline-reset': { zh: '状态栏已恢复默认（全部显示）', en: 'Status line reset to defaults (all segments shown)' },
+  'statusline-reset': { zh: '状态栏已恢复默认', en: 'Status line reset to defaults' },
   'statusline-status': { zh: '状态栏字段', en: 'Status line segments' },
 
   // ── components/PromptInput.tsx ──────────────────────────────────────

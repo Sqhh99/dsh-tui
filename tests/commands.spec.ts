@@ -30,6 +30,7 @@ describe('filterCommands', () => {
 
   it('includes every local command in the shipped table', () => {
     expect(LOCAL_COMMANDS.some(c => c.name === 'exit')).toBe(true)
+    expect(LOCAL_COMMANDS.some(c => c.name === 'restart')).toBe(true)
     expect(LOCAL_COMMANDS.some(c => c.name === 'preset')).toBe(true)
     expect(LOCAL_COMMANDS.some(c => c.name === 'statusline')).toBe(true)
     expect(LOCAL_COMMANDS.some(c => c.name === 'effort')).toBe(true)

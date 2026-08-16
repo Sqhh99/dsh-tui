@@ -1,5 +1,6 @@
 import React from 'react'
 import { Box, Text } from '../../ui.js'
+import type { ClickEvent } from '../../ink/events/click-event.js'
 import { stringWidth } from '../../ink/stringWidth.js'
 import { useAnimationFrame } from '../../ink/hooks/use-animation-frame.js'
 import type { ToolCallView, ToolFileDiff, ToolResultView, ToolRow } from '../../channel.js'
@@ -13,10 +14,13 @@ type Props = {
   addMargin: boolean
   /** Ctrl+O verbose: show full args/result instead of previews. */
   verbose: boolean
+  /** Header-only: hide the `⎿` body (settled tools that are not pinned). */
+  collapsed?: boolean
   /** Message-selection mode highlight. */
   isSelected?: boolean
   /** Row expanded on its own (persistent hover-grey background, CC). */
   isExpanded?: boolean
+  onClick?(event: ClickEvent): void
 }
 
 // --- structured body lines --------------------------------------------------
@@ -203,8 +207,10 @@ export function AssistantToolUseMessage({
   tool,
   addMargin,
   verbose,
+  collapsed = false,
   isSelected = false,
   isExpanded = false,
+  onClick,
 }: Props): React.ReactNode {
   const isRunning = tool.status === 'running'
   const isError = tool.status === 'error'
@@ -261,6 +267,7 @@ export function AssistantToolUseMessage({
             ? 'userMessageBackgroundHover'
             : undefined
       }
+      onClick={onClick}
     >
       <Box flexDirection="column" flexGrow={1}>
         <Box flexDirection="row" flexWrap="nowrap" minWidth={minWidth}>
@@ -276,7 +283,7 @@ export function AssistantToolUseMessage({
             </Box>
           )}
         </Box>
-        {lines.map((line, index) => (
+        {!collapsed && lines.map((line, index) => (
           <Box key={index} flexDirection="row">
             <Box width={5} flexShrink={0}>
               <Text dimColor>{index === 0 ? GUTTER_FIRST : GUTTER_REST}</Text>

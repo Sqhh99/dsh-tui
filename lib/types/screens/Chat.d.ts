@@ -11,13 +11,13 @@ import type { QuestionStore } from '../questions.js';
  * Ctrl+O toggles expanded detail globally; Shift+↑ enters message-selection
  * mode (↑/↓ move, Enter expands the selected row, Esc exits); Ctrl+C
  * interrupts the running turn, or (when idle) asks for a second Ctrl+C to
- * exit; Enter while scrolled up jumps back to the bottom.
+ * leave the process; Enter while scrolled up jumps back to the bottom.
  */
 export declare function Chat({ channel, questionStore, onExit, onRestart, onUpdate, }: {
     channel: Channel;
     questionStore: QuestionStore;
     onExit: () => void;
-    /** Leave and come straight back up on the same session (Ctrl+C). Falls
+    /** Leave and come straight back up on the same session (`/restart`). Falls
      *  back to a plain exit when the host cannot relaunch. */
     onRestart?: () => void;
     /** Update the installed package and restart the current TUI process. */

@@ -7,7 +7,7 @@ import { Divider } from './design-system/Divider.js'
 import { KeyboardShortcutHint } from './design-system/KeyboardShortcutHint.js'
 import { UserPromptMessage } from './messages/UserPromptMessage.js'
 import { ToolChainSummary } from './messages/ToolChainSummary.js'
-import { collapseToolChains, findToolChains, summarizeToolChain, type TranscriptItem } from './toolChain.js'
+import { collapseToolChains, findToolChains, isToolBodyOpen, summarizeToolChain, type TranscriptItem } from './toolChain.js'
 import type { ClickEvent } from '../ink/events/click-event.js'
 import { AssistantTextMessage } from './messages/AssistantTextMessage.js'
 import { AssistantThinkingMessage } from './messages/AssistantThinkingMessage.js'
@@ -24,9 +24,10 @@ import { truncateToWidth } from '../ink/truncateToWidth.js'
  * Transcript rows rendered in the Claude Code visual language: user prompts
  * on a grey bubble with a `❯` pointer, assistant text with a `●` bullet and
  * markdown, thinking folded to `∴ Thinking (ctrl+o to expand)`, tool calls as
- * status-dot cards. `expanded` (Ctrl+O) shows full reasoning + full tool
- * args/results; `expandedRows` (message-selection mode, Enter) expands single
- * rows; `selectedId` highlights the selected row.
+ * status-dot cards. Settled tools stay header-only unless pinned
+ * (`expandedRows` / double-click) or currently running. `expanded` (Ctrl+O)
+ * makes an already-open tool body verbose. `selectedId` highlights the
+ * selected row.
  */
 /** Render cap for very long sessions (CC's MAX_MESSAGES_WITHOUT_VIRTUALIZATION
  *  equivalent): older rows fold behind a Divider until Ctrl+E expands them. */
@@ -449,27 +450,29 @@ function TranscriptRow({
     },
     [setRowRef, rowId],
   )
-  // Single click keeps CC's per-row verbose toggle; a double click on a row
-  // that heads a tool chain folds that chain instead (the web client's
-  // trajectory gesture). Claiming the double-click with
-  // stopImmediatePropagation() is what tells the ink core we own it, so it
-  // does not also select a word under the cursor.
-  //
-  // As upstream, there is no disambiguation timer: click 1 already ran the
-  // single-click action. Undo it here so a fold never leaves the anchor
-  // verbose-expanded as a side effect.
+  // Single click keeps CC's per-row verbose toggle on text rows. Tool cards
+  // stay header-only unless running or pinned — a single click must not
+  // open the body, or the first half of a double-click would expand then
+  // immediately collapse. Double-click on a tool pins/unpins the body;
+  // double-click on a chain head folds the chain. Always claim the
+  // double-click so ink does not word-select + copy-on-select the bubble.
   const onClick = React.useCallback(
     (event: ClickEvent): void => {
       if (event.clickCount >= 2) {
-        if (!anchorsChain) return
         event.stopImmediatePropagation()
+        if (kind === 'tool') {
+          onToggleRow(rowId)
+          return
+        }
+        if (!anchorsChain) return
         onToggleRow(rowId, false)
         onToggleChain(rowId)
         return
       }
+      if (kind === 'tool') return
       onToggleRow(rowId)
     },
-    [onToggleRow, onToggleChain, rowId, anchorsChain],
+    [onToggleRow, onToggleChain, rowId, anchorsChain, kind],
   )
 
   switch (kind) {
@@ -572,14 +575,17 @@ function TranscriptRow({
         startedAt: toolStartedAt,
         durationMs: toolDurationMs,
       }
+      const showBody = isToolBodyOpen(toolStatus, isExpanded)
       return (
         <Box flexDirection="column" ref={ref}>
           <AssistantToolUseMessage
             tool={tool}
             addMargin={addMargin}
-            verbose={isExpanded || expanded}
+            collapsed={!showBody}
+            verbose={showBody && (isExpanded || expanded)}
             isSelected={isSelected}
             isExpanded={isExpanded}
+            onClick={onClick}
           />
         </Box>
       )
@@ -676,9 +682,12 @@ function ChainSummaryRow({
   )
   const onClick = React.useCallback(
     (event: ClickEvent): void => {
-      // A double-click on the summary would otherwise expand and immediately
-      // re-collapse; let the second click through to text selection instead.
-      if (event.clickCount >= 2) return
+      // Claim the double-click so copy-on-select does not lift the row.
+      // Click 1 already toggled the chain; do not toggle again.
+      if (event.clickCount >= 2) {
+        event.stopImmediatePropagation()
+        return
+      }
       // Ignore clicks on the blank run to the right of the label, as the
       // ClickEvent contract recommends.
       if (event.cellIsBlank) return

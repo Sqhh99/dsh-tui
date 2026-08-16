@@ -77,9 +77,9 @@ for (const a of process.argv.slice(2)) {
   }
 }
 
-// Ctrl+C's restart: the TUI leaves with this code and we bring it straight
-// back on the same session. Relaunching HERE keeps things flat — having the
-// TUI respawn itself would leave one live parent process per restart.
+// `/restart` and `/update`: the TUI leaves with this code and we bring it
+// straight back on the same session. Relaunching HERE keeps things flat —
+// having the TUI respawn itself would leave one live parent process per restart.
 // Must match RESTART_EXIT_CODE in src/update.ts (and dsh-tui.cmd); this file
 // ships as plain JS with no build step, so it cannot import it.
 const RESTART_EXIT_CODE = 75
@@ -105,10 +105,12 @@ function launch() {
     }
     if (code === RESTART_EXIT_CODE) {
       // The TUI wrote the session id to resume.txt before leaving; pick it
-      // up so the replacement continues the same conversation.
+      // up so the replacement continues the same conversation. A short
+      // pause lets WSL/PTY release the previous setRawMode before the
+      // replacement's first useInput enable.
       const target = readResumeTarget()
       if (target) process.env.DSH_TUI_RESUME_SESSION = target
-      launch()
+      setTimeout(launch, 80)
       return
     }
     process.exit(code ?? 0)

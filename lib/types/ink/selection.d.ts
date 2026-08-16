@@ -66,6 +66,13 @@ export type SelectionState = {
      *  were on, xterm.js would have consumed the event for native selection
      *  and we'd never receive it. Used by the footer to show the right hint. */
     lastPressHadAlt: boolean;
+    /**
+     * True once the user actually dragged (or used shift+arrow) after the
+     * press. A bare double/triple-click sets a word/line span but leaves
+     * this false so copy-on-select does not fire for a click that was meant
+     * to toggle a card.
+     */
+    didMove: boolean;
 };
 /**
  * Create a new selection state with no active selection.

@@ -36,10 +36,10 @@ export function HelpMenu({
           <Text dimColor>ctrl+g to fold tool chains</Text>
         </Box>
         <Box>
-          <Text dimColor>ctrl+c to interrupt/restart</Text>
+          <Text dimColor>ctrl+c to interrupt/exit</Text>
         </Box>
         <Box>
-          <Text dimColor>ctrl+d to exit</Text>
+          <Text dimColor>ctrl+d to exit · /restart to relaunch</Text>
         </Box>
         <Box>
           <Text dimColor>ctrl+l to redraw</Text>

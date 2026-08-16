@@ -1,25 +1,22 @@
 import React from 'react'
-import { Box, Text, useTerminalSize, useTheme } from '../ui.js'
+import { Box, Text } from '../ui.js'
 import { formatTokens } from '../cc/format.js'
 import { Byline } from '../components/design-system/Byline.js'
-import { KeyboardShortcutHint } from '../components/design-system/KeyboardShortcutHint.js'
 import { ActivityLine, contextPressurePct } from '../components/ActivityLine.js'
 import type { Channel } from '../channel.js'
 import { DEFAULT_STATUS_LINE, type StatusLinePrefs } from '../statusLinePrefs.js'
 import {
-  renderContextBar,
+  formatContextUsage,
   renderTpsGauge,
   renderTpsSparkline,
   speedColor,
 } from './StatusMetrics.js'
 
 /**
- * The footer under the prompt input, in Claude Code's PromptInputFooter
- * layout: the segmented context progress bar on its own first line, the
- * status line below (left group: model · tokens · think level · cache · tps
- * gauge/sparkline; right group: git · cwd · title, right-aligned), and the
- * mode/hint line last. The right side of the footer shows the latest
- * transient notification (errors in red, warnings in amber — CC style).
+ * The footer under the prompt input: one metrics row (model · tps · effort
+ * · ctx · cache · tokens on the left, git · cwd · title on the right) and
+ * an optional hint row. Context is a short `ctx 23k/1.0M 2.3%` read, not
+ * a full-width labeled segment bar.
  *
  * `segments` (the `/statusline` choice, persisted in
  * `~/.dsh-tui/statusline.json`) gates each field individually. It only ever
@@ -37,9 +34,6 @@ export function StatusLine({
   helpOpen?: boolean
   segments?: StatusLinePrefs
 }) {
-  const { columns } = useTerminalSize()
-  const [themeName] = useTheme()
-
   const usage = channel.lastUsage
   const contextParts: React.ReactNode[] = []
   if (segments.effort && channel.reasoningEffort !== undefined) {
@@ -94,6 +88,18 @@ export function StatusLine({
     }
   }
 
+  const ctxText =
+    segments.contextBar &&
+    channel.contextBarEnabled &&
+    channel.contextWindow !== undefined
+      ? formatContextUsage(
+          usage !== undefined
+            ? usage.input + usage.cacheRead + usage.cacheWrite
+            : channel.tokens.input,
+          channel.contextWindow,
+        )
+      : ''
+
   // Left group: every field sits at soft white (inactiveShimmer) instead of
   // the previous uniform dim grey — readable against dark terminals.
   const leftParts = [
@@ -101,6 +107,13 @@ export function StatusLine({
       ? [
           <Text key="model" color="inactiveShimmer">
             {channel.model}
+          </Text>,
+        ]
+      : []),
+    ...(ctxText !== ''
+      ? [
+          <Text key="ctx" color="inactiveShimmer">
+            {ctxText}
           </Text>,
         ]
       : []),
@@ -160,76 +173,48 @@ export function StatusLine({
     activity.line !== '' &&
     activity.phase !== 'idle'
 
-  const barWidth = columns - 4
-  let bar: string | null = null
-  // Theme-aware free segment: the light palette's near-white fill (#E8E8E8)
-  // reads as a glaring white band on dark terminals — swap it for a deep
-  // blue-gray there while keeping the light palette as-is (dark-ansi carries
-  // `ansi:` color names, so map by theme name rather than palette tokens).
-  const barColors =
-    themeName === 'light'
-      ? undefined
-      : { freeFill: '#2E3440', freeText: '#8D95A6' }
-  if (
-    segments.contextBar &&
-    channel.contextBarEnabled &&
-    barWidth >= 14 &&
-    channel.contextWindow !== undefined
-  ) {
-    bar = renderContextBar(
-      channel.contextSegments,
-      usage !== undefined ? usage.input + usage.cacheRead + usage.cacheWrite : 0,
-      channel.contextWindow,
-      barWidth,
-      barColors,
-    )
-  }
-
   return (
     <Box paddingX={2}>
       <Box flexDirection="column" width="100%">
-        {/* Row 1: segmented context bar, its own line, first (pi-nano-context
-            placement — the bar sits directly under the transcript). */}
-        {bar ? <Text>{bar}</Text> : null}
-        {/* Row 2: status fields — left group, tps, right group spread apart.
-            The right group (git/cwd/title) shrinks twice as fast as the left
-            so a long session title truncates before the metrics do. */}
-        <Box flexDirection="row" justifyContent="space-between" gap={2}>
-          <Text wrap="truncate">
-            <Byline>{leftParts}</Byline>
-          </Text>
-          <Box justifyContent="flex-end" flexShrink={2}>
+        <Box flexDirection="row" gap={2}>
+          <Box flexGrow={1} flexShrink={1}>
+            <Text wrap="truncate">
+              <Byline>{leftParts}</Byline>
+            </Text>
+          </Box>
+          <Box flexShrink={1}>
             <Text wrap="truncate">
               <Byline>{rightParts}</Byline>
             </Text>
           </Box>
         </Box>
-        {/* Row 3: idle turn summary (ActivityLine) + mode hint on the right. */}
-        <Box
-          height={1}
-          overflow="hidden"
-          flexDirection="row"
-          justifyContent="space-between"
-          gap={2}
-        >
-          {showActivity && activity !== undefined ? (
-            <ActivityLine
-              activity={activity}
-              activityFrames={channel.activityFrames}
-              warnPct={contextPressurePct(usage, channel.contextWindow)}
-              warnDanger={
-                (contextPressurePct(usage, channel.contextWindow) ?? 0) >= 95
-              }
-            />
-          ) : hint ? (
-            <Text color="inactiveShimmer">{hint}</Text>
-          ) : null}
-          {showActivity && hint ? (
-            <Text color="inactiveShimmer" wrap="truncate">
-              {hint}
-            </Text>
-          ) : null}
-        </Box>
+        {(showActivity || hint) && (
+          <Box
+            height={1}
+            overflow="hidden"
+            flexDirection="row"
+            justifyContent="space-between"
+            gap={2}
+          >
+            {showActivity && activity !== undefined ? (
+              <ActivityLine
+                activity={activity}
+                activityFrames={channel.activityFrames}
+                warnPct={contextPressurePct(usage, channel.contextWindow)}
+                warnDanger={
+                  (contextPressurePct(usage, channel.contextWindow) ?? 0) >= 95
+                }
+              />
+            ) : hint ? (
+              <Text color="inactiveShimmer">{hint}</Text>
+            ) : null}
+            {showActivity && hint ? (
+              <Text color="inactiveShimmer" wrap="truncate">
+                {hint}
+              </Text>
+            ) : null}
+          </Box>
+        )}
       </Box>
     </Box>
   )
