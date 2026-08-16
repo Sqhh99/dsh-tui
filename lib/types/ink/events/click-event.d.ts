@@ -27,6 +27,20 @@ export declare class ClickEvent extends Event {
      * clicks on empty terminal space don't toggle state.
      */
     readonly cellIsBlank: boolean;
-    constructor(col: number, row: number, cellIsBlank: boolean);
+    /**
+     * How many clicks this event closes: 1 for a plain click, 2 for the second
+     * click of a double-click (capped there — a triple-click stays with the
+     * text-selection path and never reaches the DOM). A handler that wants
+     * double-click semantics branches on this and consumes the event; consuming
+     * a `clickCount === 2` event suppresses the word-select that would
+     * otherwise run in its place.
+     *
+     * Note that click 1 of a double-click has already been dispatched as its
+     * own `clickCount === 1` event by the time this arrives — there is no
+     * disambiguation timer, matching the web client's plain
+     * `onClick`/`onDoubleClick` pairing.
+     */
+    readonly clickCount: number;
+    constructor(col: number, row: number, cellIsBlank: boolean, clickCount?: number);
 }
 //# sourceMappingURL=click-event.d.ts.map

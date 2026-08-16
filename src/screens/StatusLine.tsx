@@ -5,6 +5,7 @@ import { Byline } from '../components/design-system/Byline.js'
 import { KeyboardShortcutHint } from '../components/design-system/KeyboardShortcutHint.js'
 import { ActivityLine, contextPressurePct } from '../components/ActivityLine.js'
 import type { Channel } from '../channel.js'
+import { DEFAULT_STATUS_LINE, type StatusLinePrefs } from '../statusLinePrefs.js'
 import {
   renderContextBar,
   renderTpsGauge,
@@ -19,29 +20,36 @@ import {
  * gauge/sparkline; right group: git · cwd · title, right-aligned), and the
  * mode/hint line last. The right side of the footer shows the latest
  * transient notification (errors in red, warnings in amber — CC style).
+ *
+ * `segments` (the `/statusline` choice, persisted in
+ * `~/.dsh-tui/statusline.json`) gates each field individually. It only ever
+ * removes: `contextBar` still needs the cordis.yml `contextBar` key on, and a
+ * field with nothing to show stays hidden regardless.
  */
 export function StatusLine({
   channel,
   selectionActive = false,
   helpOpen = false,
+  segments = DEFAULT_STATUS_LINE,
 }: {
   channel: Channel
   selectionActive?: boolean
   helpOpen?: boolean
+  segments?: StatusLinePrefs
 }) {
   const { columns } = useTerminalSize()
   const [themeName] = useTheme()
 
   const usage = channel.lastUsage
   const contextParts: React.ReactNode[] = []
-  if (channel.reasoningEffort !== undefined) {
+  if (segments.effort && channel.reasoningEffort !== undefined) {
     contextParts.push(
       <Text key="effort" color="inactiveShimmer">
         {channel.reasoningEffort}
       </Text>,
     )
   }
-  if (usage !== undefined && usage.cacheRead > 0) {
+  if (segments.cache && usage !== undefined && usage.cacheRead > 0) {
     // Cache hit rate of the context fed to the model (read / total), one
     // decimal — the absolute read count lives in the context bar's system
     // segment, the rate is the glanceable health signal.
@@ -59,7 +67,7 @@ export function StatusLine({
   // number only: the live value (gauge while streaming, sparkline of past
   // turns once samples exist) — no μ/p95 clutter.
   const tpsParts: React.ReactNode[] = []
-  if (channel.tps !== undefined) {
+  if (segments.tps && channel.tps !== undefined) {
     if (channel.working && channel.tpsSamples.length === 0) {
       tpsParts.push(
         <Text key="tps">
@@ -89,30 +97,42 @@ export function StatusLine({
   // Left group: every field sits at soft white (inactiveShimmer) instead of
   // the previous uniform dim grey — readable against dark terminals.
   const leftParts = [
-    <Text key="model" color="inactiveShimmer">
-      {channel.model}
-    </Text>,
+    ...(segments.model
+      ? [
+          <Text key="model" color="inactiveShimmer">
+            {channel.model}
+          </Text>,
+        ]
+      : []),
     ...tpsParts,
     ...contextParts,
-    <Text key="tokens" color="inactiveShimmer">
-      {formatTokens(channel.tokens.input)}→{formatTokens(channel.tokens.output)}
-    </Text>,
+    ...(segments.tokens
+      ? [
+          <Text key="tokens" color="inactiveShimmer">
+            {formatTokens(channel.tokens.input)}→{formatTokens(channel.tokens.output)}
+          </Text>,
+        ]
+      : []),
   ]
 
   // Right group: git branch in muted steel blue, cwd a soft white, the
   // session title dimmest (it truncates first anyway).
   const rightParts = [
-    ...(channel.gitBranch
+    ...(segments.git && channel.gitBranch
       ? [
           <Text key="git" color="professionalBlue">
             {channel.gitBranch}
           </Text>,
         ]
       : []),
-    <Text key="cwd" color="inactiveShimmer">
-      {basename(channel.cwd)}
-    </Text>,
-    ...(channel.sessionTitle
+    ...(segments.cwd
+      ? [
+          <Text key="cwd" color="inactiveShimmer">
+            {basename(channel.cwd)}
+          </Text>,
+        ]
+      : []),
+    ...(segments.title && channel.sessionTitle
       ? [
           <Text key="title" dimColor>
             {channel.sessionTitle}
@@ -124,13 +144,15 @@ export function StatusLine({
   // Row 3: the mode hint — and, while idle, the working-activity turn
   // summary (the live working line itself moves to the spinner slot above
   // the input while a turn runs, so the two never duplicate).
-  const hint = selectionActive
-    ? 'esc to return to input'
-    : channel.working
-      ? 'esc to interrupt'
-      : !helpOpen
-        ? '? for shortcuts'
-        : ''
+  const hint = !segments.hint
+    ? ''
+    : selectionActive
+      ? 'esc to return to input'
+      : channel.working
+        ? 'esc to interrupt'
+        : !helpOpen
+          ? '? for shortcuts'
+          : ''
   const activity = channel.workingActivity
   const showActivity =
     !channel.working &&
@@ -148,7 +170,12 @@ export function StatusLine({
     themeName === 'light'
       ? undefined
       : { freeFill: '#2E3440', freeText: '#8D95A6' }
-  if (channel.contextBarEnabled && barWidth >= 14 && channel.contextWindow !== undefined) {
+  if (
+    segments.contextBar &&
+    channel.contextBarEnabled &&
+    barWidth >= 14 &&
+    channel.contextWindow !== undefined
+  ) {
     bar = renderContextBar(
       channel.contextSegments,
       usage !== undefined ? usage.input + usage.cacheRead + usage.cacheWrite : 0,

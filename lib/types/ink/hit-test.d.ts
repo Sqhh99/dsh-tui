@@ -17,9 +17,9 @@ import type { DOMElement } from './dom.js';
  */
 export declare function hitTest(node: DOMElement, col: number, row: number): DOMElement | null;
 /**
- * Hit-test the root at (col, row) and bubble a ClickEvent from the deepest
- * containing node up through parentNode. Only nodes with an onClick handler
- * fire. Stops when a handler calls stopImmediatePropagation(). Returns
+ * Hit-test the root at (col, row) and bubble a plain ClickEvent from the
+ * deepest containing node up through parentNode. Only nodes with an onClick
+ * handler fire. Stops when a handler calls stopImmediatePropagation(). Returns
  * true if at least one onClick handler fired.
  * @param root - the tree root to hit-test.
  * @param col - the screen column of the click.
@@ -28,6 +28,23 @@ export declare function hitTest(node: DOMElement, col: number, row: number): DOM
  * @returns true when at least one onClick handler fired.
  */
 export declare function dispatchClick(root: DOMElement, col: number, row: number, cellIsBlank?: boolean): boolean;
+/**
+ * Deliver the second click of a double-click as a `clickCount === 2`
+ * ClickEvent through the same onClick chain.
+ *
+ * Unlike {@link dispatchClick} this reports consumption only when a handler
+ * called `stopImmediatePropagation()`. Merely *having* an onClick is not
+ * enough: nearly every transcript row has one for its single-click behavior,
+ * and treating those as consumers would kill double-click-to-select-word
+ * across the whole transcript. A handler that genuinely owns the gesture
+ * claims it explicitly; everything else falls through to text selection.
+ * @param root - the tree root to hit-test.
+ * @param col - the screen column of the click.
+ * @param row - the screen row of the click.
+ * @param cellIsBlank - whether the clicked cell is blank, reported on the event.
+ * @returns true when a handler claimed the double-click.
+ */
+export declare function dispatchDoubleClick(root: DOMElement, col: number, row: number, cellIsBlank?: boolean): boolean;
 /**
  * Fire onMouseEnter/onMouseLeave as the pointer moves. Like DOM
  * mouseenter/mouseleave: does NOT bubble — moving between children does

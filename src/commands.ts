@@ -41,8 +41,10 @@ export const LOCAL_COMMANDS: LocalCommand[] = [
   { name: 'activity', description: 'Switch the working-activity indicator preset' },
   { name: 'preset', description: 'Switch the agent preset (standard/code/minimal/cordis)' },
   { name: 'theme', description: 'Switch the color theme (built-in or custom)' },
+  { name: 'statusline', description: 'Choose which status bar segments are shown' },
   { name: 'lang', description: 'Switch the UI language (en / zh)' },
   { name: 'model', description: 'Show the active model' },
+  { name: 'effort', description: 'Set the reasoning effort level' },
   { name: 'thinking', description: 'Toggle extended thinking display' },
   { name: 'tokens', description: 'Show session token usage' },
   // Account / policy

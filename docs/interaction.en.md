@@ -15,9 +15,10 @@
 | `Up/Down` | Select menu items; in ordinary input, browse history or move through multiline text |
 | `Ctrl+V` | Insert system clipboard text; files/images copied in Windows Explorer insert paths |
 | `Esc` | Close the active menu, selection, or modal; clear input; interrupt a working model; double-tap on empty input to rewind |
-| `Ctrl+C` | Interrupt while working; clear non-empty idle input; press twice on empty input to exit |
+| `Ctrl+C` | Interrupt while working; clear non-empty idle input; press twice on empty input to restart (the session is resumed) |
 | `Ctrl+D` | Press twice while idle to exit |
 | `Ctrl+O` | Toggle transcript/verbose detail, including full reasoning and tool arguments/output |
+| `Ctrl+G` | Fold every tool chain into a summary row, or unfold them all |
 | `Ctrl+T` | Expand or collapse the startup loaded-context panel |
 | `Ctrl+R` | Open input-history search; repeat or press `Down` for the next result |
 | `Ctrl+L` | Clear and force a physical terminal redraw |
@@ -104,21 +105,45 @@ the choice becomes the default for the next `/new` or launch. See
 
 ## Fullscreen and mouse
 
-`fullscreen: false` is the default inline mode, where the terminal emulator
-owns native scrollback and selection.
-
-`fullscreen: true` uses the alternate screen and enables in-app mouse handling:
+`fullscreen: true` is the default. It uses the alternate screen and enables
+in-app mouse handling:
 
 | Action | Behavior |
 | --- | --- |
 | Wheel | Scroll the transcript |
 | Drag | Select text, copy on release, then clear the selection |
-| Double/triple click | Select and copy a word/line |
+| Double-click a step row | Fold that step's tool calls into one summary row |
+| Click a summary row | Unfold the chain again |
+| Double/triple click elsewhere | Select and copy a word/line |
 | `Esc` | Cancel an active drag without copying |
+
+Set `fullscreen: false` for inline mode, where the terminal emulator owns
+native scrollback and selection and no in-app mouse handling runs. `Ctrl+G`
+is the keyboard equivalent of the fold gestures and works in both modes.
 
 Copy prefers OSC 52. Local fallbacks include `wl-copy`, `xclip`, and `xsel`;
 tmux uses `load-buffer -w`. Set `CC_TUI_DISABLE_MOUSE=1` to temporarily disable
 fullscreen mouse handling.
+
+## Folding tool chains
+
+A step that calls tools — the model reasons, then works the problem — renders
+as the step row followed by its tool cards. Those cards fold into one summary
+row, mirroring the web client's trajectory view:
+
+| Action | Behavior |
+| --- | --- |
+| Double-click the step row | Fold its tool calls to `… 3 tool calls · Read, Bash` |
+| Click the summary row | Unfold the chain |
+| `Enter` on a folded step row | Unfold its chain, in message-selection mode (`Shift+Up`) |
+| `Ctrl+G` | Fold every chain, or unfold them all once they already are |
+
+A chain is a settled assistant or reasoning row plus the unbroken run of tool
+calls that follows it; any other row ends the run. Everything starts unfolded,
+nothing folds on its own, and the state is not persisted across restarts.
+
+This is independent of `Ctrl+O`, which controls how much of each tool card's
+arguments and output is shown rather than whether the card is there at all.
 
 ## `ask_user_question` questionnaires
 
@@ -145,7 +170,7 @@ to inspect the complete surface available in the current composition.
 | --- | --- |
 | Sessions | `/new`, `/resume`, `/clear`, `/compact`, `/export` |
 | Status | `/status`, `/cost`, `/config`, `/doctor`, `/init`, `/agents` |
-| Model and display | `/model`, `/thinking`, `/tokens`, `/activity`, `/preset`, `/theme`, `/lang` |
+| Model and display | `/model`, `/effort`, `/thinking`, `/tokens`, `/activity`, `/preset`, `/theme`, `/statusline`, `/lang` |
 | Account and policy | `/login`, `/logout`, `/permissions`, `/add-dir`, `/hooks`, `/mcp`, `/memory` |
 | Packaged skills | `/audit`, `/bug`, `/practice`, `/review`, `/pr_comments`, `/release-notes`, `/vuln-check` |
 | Other | `/update`, `/vim`, `/terminal-setup`, `/connect`, `/help`, `/exit` |
@@ -158,6 +183,14 @@ Additional forms:
 - `/preset <id>` and `/preset status` are described in the configuration guide.
 - `/theme <name>` and `/theme status` are described in the theme guide.
 - `/lang` toggles the interface language (see “Interface language”).
+- `/effort` opens the reasoning-tier picker for the live route. `/effort <id>`
+  sets one directly and `/effort status` reports the current level plus what
+  else the adapter offers. `Shift+Tab` still cycles; both persist to
+  `~/.dsh-tui/effort.json`.
+- `/statusline` opens the status bar segment editor: `Up/Down` to move,
+  `Space` to toggle, `Enter` to save, `Esc` to cancel. The footer previews each
+  toggle live. `/statusline status` lists the current state and
+  `/statusline reset` restores every segment.
 - After startup, the TUI checks npm for a newer version in the background and
   shows a notification when one is available. The check follows the npm
   registry configuration (`NPM_CONFIG_REGISTRY` or `~/.npmrc`), so mirror

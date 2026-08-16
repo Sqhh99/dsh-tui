@@ -4,6 +4,7 @@ import { stringWidth } from '../../ink/stringWidth.js'
 import { useAnimationFrame } from '../../ink/hooks/use-animation-frame.js'
 import type { ToolCallView, ToolFileDiff, ToolResultView, ToolRow } from '../../channel.js'
 import { ToolUseLoader } from '../ToolUseLoader.js'
+import { displayName } from '../toolChain.js'
 import { formatDuration } from '../../cc/format.js'
 
 type Props = {
@@ -16,28 +17,6 @@ type Props = {
   isSelected?: boolean
   /** Row expanded on its own (persistent hover-grey background, CC). */
   isExpanded?: boolean
-}
-
-/** Tool display names: DSH emits lowercase tool ids (`bash`); Claude Code
- *  shows capitalized names (`Bash`). Map the common ones, fall back to the
- *  id with its first letter uppercased. */
-function displayName(name: string): string {
-  const KNOWN: Record<string, string> = {
-    bash: 'Bash',
-    powershell: 'PowerShell',
-    read: 'Read',
-    glob: 'Glob',
-    grep: 'Grep',
-    write: 'Write',
-    edit: 'Edit',
-    todo_write: 'TodoWrite',
-    subagent: 'Task',
-    web_search: 'WebSearch',
-  }
-  const mapped = KNOWN[name]
-  if (mapped) return mapped
-  if (name.length === 0) return name
-  return name[0]!.toUpperCase() + name.slice(1)
 }
 
 // --- structured body lines --------------------------------------------------

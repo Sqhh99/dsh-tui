@@ -1,4 +1,5 @@
 import React from 'react'
+import type { ClickEvent } from '../../ink/events/click-event.js'
 import { Box, Text } from '../../ui.js'
 import { KeyboardShortcutHint } from '../design-system/KeyboardShortcutHint.js'
 import { Markdown } from '../Markdown.js'
@@ -14,7 +15,7 @@ type Props = {
   durationMs?: number
   /** Message-selection mode highlight. */
   isSelected?: boolean
-  onClick?(): void
+  onClick?(event: ClickEvent): void
 }
 
 /**

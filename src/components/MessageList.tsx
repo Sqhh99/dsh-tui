@@ -6,6 +6,9 @@ import type { DOMElement } from '../ink/dom.js'
 import { Divider } from './design-system/Divider.js'
 import { KeyboardShortcutHint } from './design-system/KeyboardShortcutHint.js'
 import { UserPromptMessage } from './messages/UserPromptMessage.js'
+import { ToolChainSummary } from './messages/ToolChainSummary.js'
+import { collapseToolChains, findToolChains, summarizeToolChain, type TranscriptItem } from './toolChain.js'
+import type { ClickEvent } from '../ink/events/click-event.js'
 import { AssistantTextMessage } from './messages/AssistantTextMessage.js'
 import { AssistantThinkingMessage } from './messages/AssistantThinkingMessage.js'
 import { AssistantToolUseMessage } from './messages/AssistantToolUseMessage.js'
@@ -42,12 +45,19 @@ const DEFAULT_ROW_HEIGHT = 2
  *  first layout measurement. */
 const DEFAULT_HEADER_LINES = 14
 
+/** Stable empty set for the optional chain-collapse props, so a caller that
+ *  omits them does not hand a fresh identity down on every render. */
+const NO_COLLAPSED_CHAINS: ReadonlySet<number> = new Set()
+const noop = (): void => {}
+
 export function MessageList({
   rows,
   expanded,
   expandedRows,
+  collapsedChains = NO_COLLAPSED_CHAINS,
   selectedId,
   onToggleRow,
+  onToggleChain = noop,
   model,
   showAll,
   onToggleAll,
@@ -62,8 +72,15 @@ export function MessageList({
   rows: readonly ChatRow[]
   expanded: boolean
   expandedRows: ReadonlySet<number>
+  /** Anchor row ids whose tool chain is folded into a summary row. Optional:
+   *  omitting it (as the standalone verify/repro scripts do) renders every
+   *  chain expanded, which is also the startup state. */
+  collapsedChains?: ReadonlySet<number>
   selectedId: number | null
-  onToggleRow: (rowId: number) => void
+  onToggleRow: (rowId: number, next?: boolean) => void
+  /** Fold/unfold the tool chain anchored at `anchorId`. Optional alongside
+   *  `collapsedChains` — without state to drive, the gesture is inert. */
+  onToggleChain?: (anchorId: number) => void
   model: string
   showAll: boolean
   onToggleAll: () => void
@@ -85,19 +102,28 @@ export function MessageList({
 }) {
   const hiddenCount = rows.length - MAX_RENDERED_ROWS
   // The thinking filter runs BEFORE virtualization so window indices line up.
-  const visibleRows = (showAll || hiddenCount <= 0
+  const filteredRows = (showAll || hiddenCount <= 0
     ? rows
     : rows.slice(hiddenCount)
   ).filter(row => thinkingVisible || row.kind !== 'reasoning')
+  // Tool-chain grouping runs here too, for the same reason: margins, offsets,
+  // measured heights and the unseen-count must all agree on ONE list. Folding
+  // a chain replaces its tool run with a single summary entry; the anchor row
+  // stays put.
+  const chains = findToolChains(filteredRows)
+  const visibleRows: TranscriptItem[] =
+    collapsedChains.size === 0
+      ? filteredRows.map(row => ({ item: 'row', id: row.id, kind: row.kind, row }))
+      : collapseToolChains(filteredRows, collapsedChains, chains)
   // CC addMargin: every rendered block gets a 1-row top margin except the
   // first. Pre-pass over the FULL list so a windowed row keeps the exact
   // spacing it would have in a fully-mounted list.
   const margins = new Map<number, boolean>()
   {
-    let prev: ChatRow['kind'] | undefined
-    for (const row of visibleRows) {
-      margins.set(row.id, prev !== undefined)
-      prev = row.kind
+    let prev: TranscriptItem['kind'] | undefined
+    for (const entry of visibleRows) {
+      margins.set(entry.id, prev !== undefined)
+      prev = entry.kind
     }
   }
   // CC's expanded rows keep a persistent hover-grey background (VirtualItem:
@@ -141,8 +167,8 @@ export function MessageList({
     return scrollHandle.subscribe(tick)
   }, [scrollHandle])
 
-  const heightOf = (row: ChatRow): number =>
-    heightsRef.current.get(row.id) ?? DEFAULT_ROW_HEIGHT
+  const heightOf = (entry: TranscriptItem): number =>
+    heightsRef.current.get(entry.id) ?? DEFAULT_ROW_HEIGHT
   const offsets: number[] = new Array<number>(visibleRows.length)
   let total = 0
   for (let i = 0; i < visibleRows.length; i++) {
@@ -177,7 +203,7 @@ export function MessageList({
     start = Math.min(start, visibleRows.length - 1)
   }
   if (forceMountRowId !== undefined && forceMountRowId !== null) {
-    const idx = visibleRows.findIndex(row => row.id === forceMountRowId)
+    const idx = visibleRows.findIndex(entry => entry.id === forceMountRowId)
     if (idx !== -1) {
       start = Math.min(start, idx)
       end = Math.max(end, idx + 1)
@@ -196,7 +222,11 @@ export function MessageList({
   // effect only re-renders on actual count changes).
   let unseenCount = 0
   if (newSinceRowId !== null && newSinceRowId !== undefined) {
-    const firstNew = visibleRows.findIndex(row => row.id > newSinceRowId)
+    // A collapsed chain answers with its anchor's id: summary ids are negated
+    // anchor ids, so comparing them directly would never read as new.
+    const seenId = (entry: TranscriptItem): number =>
+      entry.item === 'chain' ? entry.chain.anchorId : entry.id
+    const firstNew = visibleRows.findIndex(entry => seenId(entry) > newSinceRowId)
     if (firstNew !== -1) {
       const seenBottom = scrollTop + viewport - base
       for (let i = firstNew; i < visibleRows.length; i++) {
@@ -274,16 +304,33 @@ export function MessageList({
       {topPad > 0 && <Box height={topPad} flexShrink={0} />}
       {visibleRows
         .slice(start, end)
-        .map((row) => {
+        .map((entry) => {
         // CC addMargin: pre-pass result keeps windowed rows at full-mount
         // spacing; only the very first row of the whole list has none.
-          const addMargin = margins.get(row.id) === true
+          const addMargin = margins.get(entry.id) === true
+          if (entry.item === 'chain') {
+            return (
+              <MemoChainSummary
+                key={entry.id}
+                rowId={entry.id}
+                anchorId={entry.chain.anchorId}
+                summary={summarizeToolChain(entry.chain)}
+                addMargin={addMargin}
+                isSelected={selectedId === entry.id}
+                columns={columns}
+                onToggleChain={onToggleChain}
+                setRowRef={setRowRef}
+              />
+            )
+          }
+          const row = entry.row
           const tool = row.tool
           return (
             <MemoRow
               key={row.id}
               rowId={row.id}
               kind={row.kind}
+              anchorsChain={chains.has(row.id)}
               text={row.text}
               streaming={row.streaming === true}
               durationMs={row.durationMs}
@@ -308,6 +355,7 @@ export function MessageList({
               toolDurationMs={tool?.durationMs}
               nowSec={tool?.status === 'running' ? nowSec : undefined}
               onToggleRow={onToggleRow}
+              onToggleChain={onToggleChain}
               setRowRef={setRowRef}
             />
           )
@@ -329,6 +377,8 @@ export function MessageList({
 type MemoRowProps = {
   rowId: number
   kind: ChatRow['kind']
+  /** True when this row heads a tool chain, so a double-click folds it. */
+  anchorsChain: boolean
   text: string
   streaming: boolean
   durationMs: number | undefined
@@ -358,13 +408,15 @@ type MemoRowProps = {
   /** Second-resolution clock, forwarded only while the tool runs so the
    *  live elapsed label ticks; settled rows never receive a changing prop. */
   nowSec: number | undefined
-  onToggleRow: (rowId: number) => void
+  onToggleRow: (rowId: number, next?: boolean) => void
+  onToggleChain: (anchorId: number) => void
   setRowRef: (rowId: number, el: DOMElement | null) => void
 }
 
 function TranscriptRow({
   rowId,
   kind,
+  anchorsChain,
   text,
   streaming,
   durationMs,
@@ -388,6 +440,7 @@ function TranscriptRow({
   toolStartedAt,
   toolDurationMs,
   onToggleRow,
+  onToggleChain,
   setRowRef,
 }: MemoRowProps): React.ReactNode {
   const ref = React.useCallback(
@@ -396,9 +449,28 @@ function TranscriptRow({
     },
     [setRowRef, rowId],
   )
-  const onClick = React.useCallback((): void => {
-    onToggleRow(rowId)
-  }, [onToggleRow, rowId])
+  // Single click keeps CC's per-row verbose toggle; a double click on a row
+  // that heads a tool chain folds that chain instead (the web client's
+  // trajectory gesture). Claiming the double-click with
+  // stopImmediatePropagation() is what tells the ink core we own it, so it
+  // does not also select a word under the cursor.
+  //
+  // As upstream, there is no disambiguation timer: click 1 already ran the
+  // single-click action. Undo it here so a fold never leaves the anchor
+  // verbose-expanded as a side effect.
+  const onClick = React.useCallback(
+    (event: ClickEvent): void => {
+      if (event.clickCount >= 2) {
+        if (!anchorsChain) return
+        event.stopImmediatePropagation()
+        onToggleRow(rowId, false)
+        onToggleChain(rowId)
+        return
+      }
+      onToggleRow(rowId)
+    },
+    [onToggleRow, onToggleChain, rowId, anchorsChain],
+  )
 
   switch (kind) {
     case 'user':
@@ -571,6 +643,63 @@ function compactPreview(text: string, limit = 60): string {
 }
 
 const MemoRow = React.memo(TranscriptRow)
+
+/** Collapsed-chain row, flattened to primitives for the same memo reason as
+ *  MemoRow: the grouping pass rebuilds its chain objects every render, so the
+ *  summary arrives as an already-rendered string that compares by value. */
+type MemoChainSummaryProps = {
+  rowId: number
+  anchorId: number
+  summary: string
+  addMargin: boolean
+  isSelected: boolean
+  columns: number
+  onToggleChain: (anchorId: number) => void
+  setRowRef: (rowId: number, el: DOMElement | null) => void
+}
+
+function ChainSummaryRow({
+  rowId,
+  anchorId,
+  summary,
+  addMargin,
+  isSelected,
+  columns,
+  onToggleChain,
+  setRowRef,
+}: MemoChainSummaryProps): React.ReactNode {
+  const ref = React.useCallback(
+    (el: DOMElement | null): void => {
+      setRowRef(rowId, el)
+    },
+    [setRowRef, rowId],
+  )
+  const onClick = React.useCallback(
+    (event: ClickEvent): void => {
+      // A double-click on the summary would otherwise expand and immediately
+      // re-collapse; let the second click through to text selection instead.
+      if (event.clickCount >= 2) return
+      // Ignore clicks on the blank run to the right of the label, as the
+      // ClickEvent contract recommends.
+      if (event.cellIsBlank) return
+      onToggleChain(anchorId)
+    },
+    [onToggleChain, anchorId],
+  )
+  return (
+    <Box flexDirection="column" ref={ref}>
+      <ToolChainSummary
+        summary={summary}
+        addMargin={addMargin}
+        isSelected={isSelected}
+        columns={columns}
+        onClick={onClick}
+      />
+    </Box>
+  )
+}
+
+const MemoChainSummary = React.memo(ChainSummaryRow)
 
 /**
  * The header block pinned above the transcript: whale from

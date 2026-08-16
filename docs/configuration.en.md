@@ -35,7 +35,7 @@ A complete common override looks like this:
     activity: true
     activityFrames: claude
     contextBar: true
-    fullscreen: false
+    fullscreen: true
     preset: !!js process.env.CC_TUI_PRESET ?? undefined
     sessionId: !!js process.env.DSH_CC_RESUME_SESSION ?? undefined
 ```
@@ -49,7 +49,7 @@ A complete common override looks like this:
 | `activity` | `true` | Show the live activity row |
 | `activityFrames` | persisted choice or `claude` | Activity animation preset; `/activity` changes it at runtime |
 | `contextBar` | `true` | Segmented context-usage bar below the input box; `false` hides the row |
-| `fullscreen` | `false` | `true` uses the alternate screen, app scrolling, and mouse selection; `false` uses inline mode |
+| `fullscreen` | `true` | `true` uses the alternate screen, app scrolling, mouse selection, and click interaction (double-click folds a tool chain); `false` uses inline mode, leaving scrollback and selection to the terminal |
 | `preset` | roster default `standard` | Agent preset for new sessions; explicit configuration wins over persisted preference |
 | `sessionId` | unset | Session to resume, normally injected by the Windows `--resume` launcher |
 
@@ -132,6 +132,26 @@ Insert servers in the user `cordis.patch.yml`:
 Run `/mcp` to inspect connected servers and tool counts. Consult the
 [DeepSeek Harness configuration catalog](https://deepseek-harness.github.io/deepseek-harness/reference/config-catalog#deepseek-ai-dsh-mcp-client)
 for the complete field reference.
+
+## Persisted preferences
+
+Runtime choices are written under `~/.dsh-tui/` and reloaded on the next start.
+A `cordis.yml` key always wins over the persisted value.
+
+| File | Written by | Holds |
+| --- | --- | --- |
+| `theme.json` | `/theme` | Built-in or custom theme name |
+| `model.json` | `/model` | Provider + model route, as one atomic pair |
+| `agent-preset.json` | `/preset` | Default preset for new sessions |
+| `working-activity.json` | `/activity` | Working-indicator frame preset |
+| `lang.json` | `/lang` | UI language (`en` / `zh`) |
+| `effort.json` | `/effort`, `Shift+Tab` | Reasoning effort level |
+| `statusline.json` | `/statusline` | Which status bar segments are shown |
+| `resume.txt` | Exit and restart | Last session id, for `--resume` |
+
+`statusline.json` is a partial map, so a segment added by a later version is
+absent from an older file and defaults to shown rather than disappearing.
+`/statusline reset` restores the full default footer.
 
 ## Environment variables
 

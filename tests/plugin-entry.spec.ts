@@ -11,7 +11,9 @@ describe('Cordis plugin face', () => {
     const parsed = Config({} as never)
     expect(parsed.provider).toBeUndefined()
     expect(parsed.model).toBeUndefined()
-    expect(parsed.fullscreen).toBe(false)
+    // Fullscreen is on by default: the alt screen is what supplies mouse
+    // handling (wheel scroll, select-to-copy, the tool-chain double-click).
+    expect(parsed.fullscreen).toBe(true)
     expect(parsed.activity).toBe(true)
   })
 })
