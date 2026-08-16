@@ -72,6 +72,12 @@ export declare function summarizeToolChain(chain: ToolChain): string;
  */
 export declare function chainSummaryRowId(anchorId: number): number;
 /**
+ * Whether a tool card should render its `⎿` body. Settled tools stay
+ * header-only unless the user pinned the row open; the running call is
+ * the host's current focus and stays open on its own.
+ */
+export declare function isToolBodyOpen(status: string | undefined, pinned: boolean): boolean;
+/**
  * Rewrite the transcript with every collapsed chain folded into one summary
  * entry (upstream `collapseAssistantRecords`). The anchor row itself stays
  * visible; only its tool run is replaced.

@@ -31,7 +31,7 @@ shift
 goto :parse
 
 :run
-rem Ctrl+C's restart leaves with exit code 75 (RESTART_EXIT_CODE in
+rem /restart and /update leave with exit code 75 (RESTART_EXIT_CODE in
 rem src/update.ts). Relaunch here rather than letting the TUI respawn itself,
 rem so repeated restarts do not stack one live process each. DSH_TUI_LAUNCHER
 rem is what tells the TUI this loop is watching.
@@ -46,6 +46,8 @@ if exist "%USERPROFILE%\.dsh-tui\resume.txt" (
 ) else if exist "%USERPROFILE%\.dsh-cc\resume.txt" (
   set /p DSH_TUI_RESUME_SESSION=<"%USERPROFILE%\.dsh-cc\resume.txt"
 )
+rem Give the previous process time to release the TTY (WSL/ConPTY EIO).
+ping 127.0.0.1 -n 1 -w 80 >nul
 goto :relaunch
 
 :done

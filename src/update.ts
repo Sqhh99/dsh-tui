@@ -12,7 +12,7 @@ const UPDATE_CHECK_TIMEOUT_MS = 4000
 const UPDATED_FROM_ENV = 'DSH_TUI_UPDATED_FROM'
 
 /**
- * Exit code the TUI leaves with when the user asked for a restart (Ctrl+C).
+ * Exit code the TUI leaves with when the user asked for a restart (`/restart` or `/update`).
  * The launchers watch for it and relaunch in place, so repeated restarts stay
  * flat instead of nesting one child process per restart. Chosen from the
  * 64-78 sysexits range, well clear of ordinary failures.
@@ -266,7 +266,7 @@ export async function updateTuiAndRestart(sessionId: string, profile: string): P
  * owns the terminal.
  *
  * This nests one process per restart, which is fine for a once-per-release
- * `/update` but not for the Ctrl+C restart — that path prefers the launcher's
+ * `/update` but not for `/restart` — that path prefers the launcher's
  * flat relaunch loop (see {@link RESTART_EXIT_CODE}) and only falls back here
  * when no launcher is watching.
  *

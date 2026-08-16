@@ -37,6 +37,8 @@ export default class App extends PureComponent<Props, State> {
         error: undefined;
     };
     rawModeEnabledCount: number;
+    shuttingDown: boolean;
+    rawModeBroken: boolean;
     internal_eventEmitter: EventEmitter;
     keyParseState: import("../parse-keypress.js").KeyParseState;
     incompleteEscapeTimer: NodeJS.Timeout | null;
@@ -58,6 +60,11 @@ export default class App extends PureComponent<Props, State> {
     componentDidMount(): void;
     componentWillUnmount(): void;
     componentDidCatch(error: Error): void;
+    /** True when setRawMode failed because the TTY fd is already gone. */
+    isDeadTtyError(error: unknown): boolean;
+    safeSetRawMode(stdin: NodeJS.ReadStream, enabled: boolean): boolean;
+    /** Stop all further raw-mode borrows and restore cooked mode once. */
+    beginShutdown: () => void;
     handleSetRawMode: (isEnabled: boolean) => void;
     flushIncomplete: () => void;
     processInput: (input: string | Buffer | null) => void;

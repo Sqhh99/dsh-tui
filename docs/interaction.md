@@ -15,10 +15,11 @@
 | `Up/Down` | 菜单选择；普通输入中浏览历史或在多行文本间移动 |
 | `Ctrl+V` | 从系统剪贴板插入文本；Windows Explorer 复制的文件/图片会插入路径 |
 | `Esc` | 按当前模式关闭菜单/选区/弹窗；有输入时清空；模型工作时中断；空输入连续两次打开 rewind |
-| `Ctrl+C` | 工作时中断；空闲且有输入时清空；空输入时连续两次重启（自动恢复当前会话） |
+| `Ctrl+C` | 工作时中断；空闲且有输入时清空；空输入时连续两次退出 |
 | `Ctrl+D` | 空闲时连续两次退出 |
 | `Ctrl+O` | 切换 transcript/verbose 详情，展开思考与完整工具参数/输出 |
 | `Ctrl+G` | 折叠全部工具链为摘要行，再按一次全部展开 |
+| 双击工具卡 | 展开或收起该条工具的正文（进行中的工具会自动展开；拖选才复制） |
 | `Ctrl+T` | 展开或折叠启动时的“已加载上下文”面板 |
 | `Ctrl+R` | 打开输入历史搜索；重复按或 `Down` 移到下一项 |
 | `Ctrl+L` | 强制清理并重绘物理终端 |
@@ -162,7 +163,7 @@ transcript。
 | 模型与显示 | `/model`、`/effort`、`/thinking`、`/tokens`、`/activity`、`/preset`、`/theme`、`/statusline`、`/lang` |
 | 账号与策略 | `/login`、`/logout`、`/permissions`、`/add-dir`、`/hooks`、`/mcp`、`/memory` |
 | 打包 Skills | `/audit`、`/bug`、`/practice`、`/review`、`/pr_comments`、`/release-notes`、`/vuln-check` |
-| 其他 | `/update`、`/vim`、`/terminal-setup`、`/connect`、`/help`、`/exit` |
+| 其他 | `/update`、`/restart`、`/vim`、`/terminal-setup`、`/connect`、`/help`、`/exit` |
 | 注册表 | `/plan`、`/goal`，以及当前 DSH 组合注册的其他命令 |
 
 补充语法：

@@ -124,6 +124,12 @@ export function ThemeProvider({
         )
       }
     })
+    return () => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      setRawMode(false)
+    }
   }, [])
 
   /**

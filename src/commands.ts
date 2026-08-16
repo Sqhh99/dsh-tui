@@ -70,6 +70,7 @@ export const LOCAL_COMMANDS: LocalCommand[] = [
   { name: 'connect', description: 'Connect to a remote machine' },
   // Help / exit
   { name: 'help', description: 'Show shortcuts and commands' },
+  { name: 'restart', description: 'Restart dsh-tui and resume this session' },
   { name: 'exit', description: 'Exit dsh-tui' },
 ]
 

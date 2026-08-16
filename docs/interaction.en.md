@@ -15,10 +15,11 @@
 | `Up/Down` | Select menu items; in ordinary input, browse history or move through multiline text |
 | `Ctrl+V` | Insert system clipboard text; files/images copied in Windows Explorer insert paths |
 | `Esc` | Close the active menu, selection, or modal; clear input; interrupt a working model; double-tap on empty input to rewind |
-| `Ctrl+C` | Interrupt while working; clear non-empty idle input; press twice on empty input to restart (the session is resumed) |
+| `Ctrl+C` | Interrupt while working; clear non-empty idle input; press twice on empty input to exit |
 | `Ctrl+D` | Press twice while idle to exit |
 | `Ctrl+O` | Toggle transcript/verbose detail, including full reasoning and tool arguments/output |
 | `Ctrl+G` | Fold every tool chain into a summary row, or unfold them all |
+| Double-click a tool card | Expand or collapse that card's body (the running tool stays open; drag to copy) |
 | `Ctrl+T` | Expand or collapse the startup loaded-context panel |
 | `Ctrl+R` | Open input-history search; repeat or press `Down` for the next result |
 | `Ctrl+L` | Clear and force a physical terminal redraw |
@@ -173,7 +174,7 @@ to inspect the complete surface available in the current composition.
 | Model and display | `/model`, `/effort`, `/thinking`, `/tokens`, `/activity`, `/preset`, `/theme`, `/statusline`, `/lang` |
 | Account and policy | `/login`, `/logout`, `/permissions`, `/add-dir`, `/hooks`, `/mcp`, `/memory` |
 | Packaged skills | `/audit`, `/bug`, `/practice`, `/review`, `/pr_comments`, `/release-notes`, `/vuln-check` |
-| Other | `/update`, `/vim`, `/terminal-setup`, `/connect`, `/help`, `/exit` |
+| Other | `/update`, `/restart`, `/vim`, `/terminal-setup`, `/connect`, `/help`, `/exit` |
 | Registry | `/plan`, `/goal`, and any other command registered by the DSH composition |
 
 Additional forms:

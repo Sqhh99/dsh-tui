@@ -48,7 +48,7 @@ Host model-facing tool rows are disabled. Agent presets (`standard` / `code` / `
 | Key | Action |
 |---|---|
 | Enter | Send (Shift+Enter newline) |
-| Ctrl+C | Interrupt; twice while idle restarts (session resumed) |
+| Ctrl+C | Interrupt; twice while idle exits |
 | Esc | Close menus; double-tap on empty input rewinds |
 | Ctrl+O | Expand or collapse thinking and tool detail |
 | Ctrl+G | Fold or unfold all tool chains (double-click a step row for one) |

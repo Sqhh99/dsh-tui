@@ -1,8 +1,8 @@
 /**
  * Ctrl+C rule scenario (real input path via stdin):
  * 1. type text → ctrl+c clears the input, app keeps running
- * 2. ctrl+c on empty input → arms exit ("Press Ctrl+C again to exit")
- * 3. second ctrl+c → exits
+ * 2. ctrl+c on empty input → arms exit
+ * 3. second ctrl+c → exits (even when onRestart is provided)
  */
 process.env.FORCE_COLOR = '3'
 
@@ -74,10 +74,16 @@ const channel: any = {
 const bump0 = () => { channel.version++; for (const cb of listeners) cb() }
 
 let exited = false
+let restarted = false
 const stdinObj = new FakeStdin()
 const instance = await render(
   <AlternateScreen>
-    <Chat channel={channel} questionStore={new QuestionStore()} onExit={() => { exited = true }} />
+    <Chat
+      channel={channel}
+      questionStore={new QuestionStore()}
+      onExit={() => { exited = true }}
+      onRestart={() => { restarted = true }}
+    />
   </AlternateScreen>,
   { stdout: new FakeStdout(), stdin: stdinObj, stderr: new FakeStderr(), exitOnCtrlC: false, patchConsole: false },
 )
@@ -102,13 +108,14 @@ check('ctrl+c with text does not arm exit', !screenHas('Press Ctrl+C again'), JS
 // 2. ctrl+c on empty input → arms exit
 stdinObj.write('\x03')
 await sleep(400)
-check('ctrl+c on empty input arms exit', screenHas('Press Ctrl+C again') || channel.notifications.length > 0, JSON.stringify(channel.notifications))
+check('ctrl+c on empty input arms exit', screenHas('Press again to exit') || channel.notifications.some((n) => String(n?.text ?? n).includes('exit') || String(n?.text ?? n).includes('退出')), JSON.stringify(channel.notifications))
 check('first press does not exit', !exited)
 
-// 3. second press exits
+// 3. second press exits — must not take the /restart path
 stdinObj.write('\x03')
 await sleep(400)
 check('second ctrl+c exits', exited)
+check('second ctrl+c does not restart', !restarted)
 
 await instance.unmount()
 process.exit(failed)

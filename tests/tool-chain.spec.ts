@@ -5,6 +5,7 @@ import {
   collapseToolChains,
   displayName,
   findToolChains,
+  isToolBodyOpen,
   summarizeToolChain,
 } from '../src/components/toolChain.ts'
 
@@ -126,5 +127,22 @@ describe('collapseToolChains', () => {
     const rows = [row('assistant'), row('tool', 'read'), row('assistant'), row('tool', 'bash')]
     const out = collapseToolChains(rows, new Set([rows[0]!.id, rows[2]!.id]))
     expect(new Set(out.map(entry => entry.id)).size).toBe(out.length)
+  })
+})
+
+describe('isToolBodyOpen', () => {
+  it('opens the running call even when the user has not pinned it', () => {
+    expect(isToolBodyOpen('running', false)).toBe(true)
+  })
+
+  it('keeps a settled call header-only until the user pins it', () => {
+    expect(isToolBodyOpen('ok', false)).toBe(false)
+    expect(isToolBodyOpen('error', false)).toBe(false)
+    expect(isToolBodyOpen(undefined, false)).toBe(false)
+  })
+
+  it('keeps a pinned settled call open', () => {
+    expect(isToolBodyOpen('ok', true)).toBe(true)
+    expect(isToolBodyOpen('error', true)).toBe(true)
   })
 })

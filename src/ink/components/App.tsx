@@ -148,6 +148,11 @@ export default class App extends PureComponent<Props, State> {
 	// Count how many components enabled raw mode to avoid disabling
 	// raw mode until all components don't need it anymore
 	rawModeEnabledCount = 0;
+	// Once teardown starts, useInput layout effects must not re-enable
+	// raw mode — WSL/PTY stdin can still report isTTY after the fd is
+	// gone, and setRawMode then throws EIO into React's error boundary.
+	shuttingDown = false;
+	rawModeBroken = false;
 	internal_eventEmitter = new EventEmitter();
 	keyParseState = INITIAL_STATE;
 	// Timer for flushing incomplete escape sequences
@@ -270,17 +275,56 @@ export default class App extends PureComponent<Props, State> {
 			clearImmediate(this.xtversionProbe);
 			this.xtversionProbe = null;
 		}
-		// ignore calling setRawMode on an handle stdin it cannot be called
-		if (this.isRawModeSupported()) {
-			this.handleSetRawMode(false);
-		}
+		this.beginShutdown();
 	}
 	override componentDidCatch(error: Error) {
 		this.handleExit(error);
 	}
+	/** True when setRawMode failed because the TTY fd is already gone. */
+	isDeadTtyError(error: unknown): boolean {
+		if (error === null || typeof error !== "object" || !("code" in error)) {
+			return false;
+		}
+		const code = String((error as { code?: unknown }).code);
+		return code === "EIO" || code === "EBADF" || code === "ENXIO";
+	}
+
+	safeSetRawMode(stdin: NodeJS.ReadStream, enabled: boolean): boolean {
+		try {
+			stdin.setRawMode(enabled);
+			return true;
+		} catch (error) {
+			if (this.isDeadTtyError(error)) {
+				this.rawModeBroken = true;
+				logForDebugging(`setRawMode(${enabled}) failed: ${String((error as { code?: unknown }).code)}`);
+				return false;
+			}
+			throw error;
+		}
+	}
+
+	/** Stop all further raw-mode borrows and restore cooked mode once. */
+	beginShutdown = (): void => {
+		if (this.shuttingDown) return;
+		this.shuttingDown = true;
+		const { stdin } = this.props;
+		if (this.isRawModeSupported()) {
+			this.safeSetRawMode(stdin, false);
+			stdin.removeListener("readable", this.handleReadable);
+			try {
+				stdin.unref();
+			} catch {
+				// stdin may already be gone.
+			}
+		}
+		this.rawModeEnabledCount = 0;
+	};
+
 	handleSetRawMode = (isEnabled: boolean): void => {
+		if (this.shuttingDown) return;
 		const { stdin } = this.props;
 		if (!this.isRawModeSupported()) {
+			if (this.rawModeBroken) return;
 			if (stdin === process.stdin) {
 				throw new Error(
 					"Raw mode is not supported on the current process.stdin, which Ink uses as input stream by default.\nRead about how to prevent this error on https://github.com/vadimdemedes/ink/#israwmodesupported",
@@ -291,7 +335,15 @@ export default class App extends PureComponent<Props, State> {
 				);
 			}
 		}
-		stdin.setEncoding("utf8");
+		try {
+			stdin.setEncoding("utf8");
+		} catch (error) {
+			if (this.isDeadTtyError(error)) {
+				this.rawModeBroken = true;
+				return;
+			}
+			throw error;
+		}
 		if (isEnabled) {
 			// Ensure raw mode is enabled only once
 			if (this.rawModeEnabledCount === 0) {
@@ -300,8 +352,15 @@ export default class App extends PureComponent<Props, State> {
 				// coexist -- our handler would drain stdin before Ink's can see it.
 				// The buffered text is preserved for REPL.tsx via consumeEarlyInput().
 				stopCapturingEarlyInput();
-				stdin.ref();
-				stdin.setRawMode(true);
+				try {
+					stdin.ref();
+				} catch {
+					// Best effort — a revoked TTY still lets us try setRawMode.
+				}
+				if (!this.safeSetRawMode(stdin, true)) {
+					this.rawModeEnabledCount++;
+					return;
+				}
 				stdin.addListener("readable", this.handleReadable);
 				// Enable bracketed paste mode
 				this.props.stdout.write(EBP);
@@ -361,9 +420,13 @@ export default class App extends PureComponent<Props, State> {
 			this.props.stdout.write(DFE);
 			// Disable bracketed paste mode
 			this.props.stdout.write(DBP);
-			stdin.setRawMode(false);
+			this.safeSetRawMode(stdin, false);
 			stdin.removeListener("readable", this.handleReadable);
-			stdin.unref();
+			try {
+				stdin.unref();
+			} catch {
+				// stdin may already be gone.
+			}
 		}
 	};
 
@@ -483,9 +546,7 @@ export default class App extends PureComponent<Props, State> {
 		// keyboard protocol terminals (Ghostty, iTerm2, kitty, WezTerm)
 	};
 	handleExit = (error?: Error): void => {
-		if (this.isRawModeSupported()) {
-			this.handleSetRawMode(false);
-		}
+		this.beginShutdown();
 		this.props.onExit(error);
 	};
 	handleTerminalFocus = (isFocused: boolean): void => {

@@ -38,9 +38,16 @@ export type ContextSegments = Record<(typeof USED_SEGMENTS)[number]['key'], numb
  */
 export declare function formatTokens(count: number): string;
 /**
+ * Compact context readout for the footer (`ctx 23k/1.0M 2.3%`). Used
+ * instead of the full-width labeled segment bar, which collapses into
+ * one-letter noise (`spattl`) when used is a few percent of a 1M window.
+ */
+export declare function formatContextUsage(usedTokens: number, contextWindow: number): string;
+/**
  * The segmented context bar: used segments by content type, the remainder as
  * a light free segment whose right edge carries the usage readout
- * (`ctx 12.3k/1.0M 1.2% 988.9k`, shrinking as width allows).
+ * (`ctx 12.3k/1.0M 1.2% 988.9k`, shrinking as width allows). Kept for
+ * scripts/show-contextbar-theme; the live footer no longer paints this.
  * @param segments - Used tokens per content type.
  * @param usedTokens - Total used tokens, driving the usage readout.
  * @param contextWindow - The context window size in tokens.

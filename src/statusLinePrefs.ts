@@ -39,10 +39,20 @@ export const STATUS_SEGMENTS = [
 export type StatusSegment = (typeof STATUS_SEGMENTS)[number]
 export type StatusLinePrefs = Record<StatusSegment, boolean>
 
-/** Every segment on — the footer as it shipped before `/statusline` existed. */
-export const DEFAULT_STATUS_LINE: StatusLinePrefs = Object.freeze(
-  Object.fromEntries(STATUS_SEGMENTS.map(segment => [segment, true])),
-) as StatusLinePrefs
+/** Default footer: metrics on, session title off (it is the first field
+ *  to collide with the right cluster on a narrow terminal). */
+export const DEFAULT_STATUS_LINE: StatusLinePrefs = Object.freeze({
+  contextBar: true,
+  model: true,
+  tps: true,
+  effort: true,
+  cache: true,
+  tokens: true,
+  git: true,
+  cwd: true,
+  title: false,
+  hint: true,
+})
 
 /**
  * Whether a string names a segment this version knows.

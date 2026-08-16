@@ -64,6 +64,13 @@ export type SelectionState = {
    *  were on, xterm.js would have consumed the event for native selection
    *  and we'd never receive it. Used by the footer to show the right hint. */
   lastPressHadAlt: boolean
+  /**
+   * True once the user actually dragged (or used shift+arrow) after the
+   * press. A bare double/triple-click sets a word/line span but leaves
+   * this false so copy-on-select does not fire for a click that was meant
+   * to toggle a card.
+   */
+  didMove: boolean
 }
 
 /**
@@ -81,6 +88,7 @@ export function createSelectionState(): SelectionState {
     scrolledOffAboveSW: [],
     scrolledOffBelowSW: [],
     lastPressHadAlt: false,
+    didMove: false,
   }
 }
 
@@ -111,6 +119,7 @@ export function startSelection(
   s.virtualAnchorRow = undefined
   s.virtualFocusRow = undefined
   s.lastPressHadAlt = false
+  s.didMove = false
 }
 
 /**
@@ -135,6 +144,7 @@ export function updateSelection(
   if (!s.focus && s.anchor && s.anchor.col === col && s.anchor.row === row)
     return
   s.focus = { col, row }
+  s.didMove = true
 }
 
 /**
@@ -166,25 +176,28 @@ export function clearSelection(s: SelectionState): void {
   s.virtualAnchorRow = undefined
   s.virtualFocusRow = undefined
   s.lastPressHadAlt = false
+  s.didMove = false
 }
 
-// Unicode-aware word character matcher: letters (any script), digits,
-// and the punctuation set iTerm2 treats as word-part by default.
-// Matching iTerm2's default means double-clicking a path like
-// `/usr/bin/bash` or `~/.claude/config.json` selects the whole thing,
-// which is the muscle memory most macOS terminal users have.
-// iTerm2 default "characters considered part of a word": /-+\~_.
+// Latin / digit / path punctuation. Han is a separate class so a
+// double-click on 中文 does not swallow an adjacent `/usr/bin` path,
+// and CJK punctuation (。，、) cuts the run the way spaces do in English.
 const WORD_CHAR = /[\p{L}\p{N}_/.\-+~\\]/u
+const HAN_CHAR = /\p{Script=Han}/u
+const CJK_PUNCT = /[\u3000-\u303f\uff00-\uffef]/u
 
 /**
  * Character class for double-click word-expansion. Cells with the same
  * class as the clicked cell are included in the selection; a class change
  * is a boundary. Matches typical terminal-emulator behavior (iTerm2 etc.):
  * double-click on `foo` selects `foo`, on `->` selects `->`, on spaces
- * selects the whitespace run.
+ * selects the whitespace run. Han is class 3 so a Chinese sentence is
+ * bounded by CJK punctuation rather than becoming one giant "word".
  */
-function charClass(c: string): 0 | 1 | 2 {
+function charClass(c: string): 0 | 1 | 2 | 3 {
   if (c === ' ' || c === '') return 0
+  if (CJK_PUNCT.test(c)) return 2
+  if (HAN_CHAR.test(c)) return 3
   if (WORD_CHAR.test(c)) return 1
   return 2
 }
@@ -290,6 +303,7 @@ export function selectWordAt(
   s.focus = hi
   s.isDragging = true
   s.anchorSpan = { lo, hi, kind: 'word' }
+  s.didMove = false
 }
 
 // Printable ASCII minus terminal URL delimiters. Restricting to single-
@@ -424,6 +438,7 @@ export function selectLineAt(
   s.focus = hi
   s.isDragging = true
   s.anchorSpan = { lo, hi, kind: 'line' }
+  s.didMove = false
 }
 
 /**
@@ -469,6 +484,7 @@ export function extendSelection(
     s.anchor = span.lo
     s.focus = span.hi
   }
+  s.didMove = true
 }
 
 /** Semantic keyboard focus moves. See moveSelectionFocus in ink.tsx for
@@ -497,6 +513,7 @@ export function moveFocus(s: SelectionState, col: number, row: number): void {
   if (!s.focus) return
   s.anchorSpan = null
   s.focus = { col, row }
+  s.didMove = true
   // Explicit user repositioning — any stale virtual focus (from a prior
   // shiftSelection clamp) no longer reflects intent. Anchor stays put so
   // virtualAnchorRow is still valid for its own round-trip.
